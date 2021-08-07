@@ -100,17 +100,28 @@ if config:
   if ((model is not None)):
     found = False
     for cammodel in data['models']:
-      if (cammodel['name'].lower() == model):
-#        if (cammodel['site'].lower() == site):
-        sample_interval = cammodel['interval']
-        cut_trigger = cammodel['cut']
-        min_segment_duration = cammodel['duration']
-        segment_extension = cammodel['extension']
-        checkinglist = cammodel['search'].split(',')
-        skip_begin = cammodel['begin']
-        skip_finish = cammodel['finish']
-        found = True
-        break
+      if (site is not None): # site specified, match on site and model
+        if ((cammodel['site'].lower() == site) and (cammodel['name'].lower() == model)):
+            sample_interval = cammodel['interval']
+            cut_trigger = cammodel['cut']
+            min_segment_duration = cammodel['duration']
+            segment_extension = cammodel['extension']
+            checkinglist = cammodel['search'].split(',')
+            skip_begin = cammodel['begin']
+            skip_finish = cammodel['finish']
+            found = True
+            break
+        else: # site not specified, match on model
+          if (cammodel['name'].lower() == model):
+            sample_interval = cammodel['interval']
+            cut_trigger = cammodel['cut']
+            min_segment_duration = cammodel['duration']
+            segment_extension = cammodel['extension']
+            checkinglist = cammodel['search'].split(',')
+            skip_begin = cammodel['begin']
+            skip_finish = cammodel['finish']
+            found = True
+            break
     if not found:
       print('INFO: \'' + model + '\' not found, using defaults.')
 
