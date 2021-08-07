@@ -1,6 +1,7 @@
 {
   "default": "EXPOSED_ANUS,EXPOSED_BELLY,EXPOSED_BREAST,EXPOSED_BUTTOCKS,EXPOSED_FEET,EXPOSED_GENITALIA,FACE",
   "video": "mkv",
+  "tempdir": ".",
   "models": [
     {
       "name": "model1",
