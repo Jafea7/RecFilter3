@@ -104,7 +104,7 @@ except:
 # Default checkinglist is gender neutral, if a particular gender is required it can be entered into the config file per model
 # Other terms can also be set in the config, see https://github.com/Jafea7/RecFilter2 for valid terms
 checkinglist = ['EXPOSED_BREAST', 'EXPOSED_BUTTOCKS', 'EXPOSED_ANUS', 'EXPOSED_GENITALIA', 'EXPOSED_BELLY']
-fileext = 'mp4'
+fileext = 'mp4' # In case there's no videoext entry in the config
 
 if config:
   if 'default' in data:
