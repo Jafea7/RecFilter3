@@ -365,7 +365,7 @@ if 5 in code_sections: #on/off switch for code
       ffmpeg_cut_start = int(timestamps[i][0])
       ffmpeg_cut_end = int(timestamps[i][1])
       ffmpeg_cut_duration = ffmpeg_cut_end - ffmpeg_cut_start
-      segment_name = timestamps[i][0] + '-' + timestamps[i][1] + '.mkv'
+      segment_name = timestamps[i][0] + '-' + timestamps[i][1] + '.' + str(fileext)
       ffmpeg_cut_input_options = ffmpeg_overwrite + quietffmpeg + ' -vsync 0 -ss ' + str(timestamps[i][0]) + ' -i "'
       ffmpeg_cut_output_options = '" -t ' + str(ffmpeg_cut_duration) + ' -c copy ' + segment_name
       ffmpeg_cut_cmd = 'ffmpeg' + ' ' + ffmpeg_cut_input_options + video_path + ffmpeg_cut_output_options
@@ -380,7 +380,7 @@ if 6 in code_sections: #on/off switch for code
   os.chdir(segments_dir)
   print('\nINFO:  Step 6 of 6: Creating final video with ffmpeg ...')
   ffmpeg_concat_options = quietffmpeg + ffmpeg_overwrite + ' -vsync 0 -safe 0 -f concat -i "' + segments_txt_path + '" -c copy "'
-  ffmpeg_concat_destname = video_path.rsplit('.', 1)[0] + '_recfilter-i' + str(sample_interval) + '-c' + str(cut_trigger) + '-d' + str(min_segment_duration) + '-e' + str(segment_extension) + '.mkv"'
+  ffmpeg_concat_destname = video_path.rsplit('.', 1)[0] + '_recfilter-i' + str(sample_interval) + '-c' + str(cut_trigger) + '-d' + str(min_segment_duration) + '-e' + str(segment_extension) + '.' + str(fileext) + '"'
   ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ffmpeg_concat_destname
   if verbose: print(ffmpeg_concat_cmd)
   os.system(ffmpeg_concat_cmd)
