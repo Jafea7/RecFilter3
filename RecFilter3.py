@@ -63,11 +63,9 @@ parser.add_argument('-6', '--save', action='append_const', dest='switches', cons
 
 args = parser.parse_args()
 
-if ((((args.model is not None) and 
-    (args.site is None))) or
-    ((args.site is not None) and
-    (args.model is None))):
-  parser.error('The -model argument requires a -site argument')
+if ((args.site is not None) and
+    (args.model is None)):
+  parser.error('The --site argument requires a --model argument')
 
 video_name = args.file
 sample_interval = args.interval
