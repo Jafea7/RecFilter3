@@ -7,6 +7,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import csv
 from pathlib import Path
 from nudenet import NudeDetector
 from csv import reader
@@ -41,28 +42,32 @@ signal.signal(signal.SIGINT, exit_handler) # Handle Ctrl-C
 print('\n--- RecFilter2 ---')
 parser = argparse.ArgumentParser(prog='RecFilter', description='RecFilter: Remove SFW sections of videos')
 parser.add_argument('file', type=str, help='Video file to process')
-parser.add_argument('-i', '--interval', type=int, default=5, help='Interval between image samples (default: 20)')
+parser.add_argument('-i', '--interval', type=int, default=5, help='Interval between image samples (default: 5)')
 parser.add_argument('-c', '--cut', type=int, default=30, help='Trigger a cut when x seconds without match (default: 30)')
-parser.add_argument('-d', '--duration', type=int, default=10, help='Minimum duration of segments (default: 20)')
-parser.add_argument('-e', '--extension', type=int, default=3, help='Extend start and end of segments by x seconds (default: 5)')
+parser.add_argument('-d', '--duration', type=int, default=10, help='Discard segments shorter than x seconds (default: 10)')
+parser.add_argument('-e', '--extension', type=int, default=3, help='Extend start and end of segments by x seconds (default: 3)')
 parser.add_argument('-b', '--beginning', type=int, default=0, help='Skip x seconds of beginning (default: 1)')
 parser.add_argument('-f', '--finish', type=int, default=0, help='Skip x seconds of finish (default: 0)')
 parser.add_argument('-m', '--model', type=str, help='Model name for config preset')
 parser.add_argument('-s', '--site', type=str, help='Site that the model appears on')
+parser.add_argument('-q', '--quick', default=False, action='store_true', help='Lower needed certainty for matches from 0.6 to 0.5 (default: False)')
 parser.add_argument('-k', '--keep', action='store_true', help='Keep temporary working files (default: False)')
 parser.add_argument('-v', '--verbose', action='store_true', help='Output working information (default: False)')
 parser.add_argument('-y', '--overwrite', default=False, action='store_true', help='Confirm all questions to overwrite (batch process)')
 parser.add_argument('-1', '--images', action='append_const', dest='switches', const=1, help='Only create image samples')
-parser.add_argument('-2', '--analyse', action='append_const', dest='switches', const=2, help='Only analyse with AI')
-parser.add_argument('-3', '--match', action='append_const', dest='switches', const=3, help='Only find matching tags')
-parser.add_argument('-4', '--timestamps', action='append_const', dest='switches', const=4, help='Only find cut positions')
-parser.add_argument('-5', '--split', action='append_const', dest='switches', const=5, help='Only split at cut markers')
-parser.add_argument('-6', '--save', action='append_const', dest='switches', const=6, help='Only connect segements and save final result')
+parser.add_argument('-2', '--analyse', action='append_const', dest='switches', const=2, help='Only analyse with NudeNet AI. Requires all_images.txt')
+parser.add_argument('-3', '--match', action='append_const', dest='switches', const=3, help='Only find matching tags. Requires analysis.txt')
+parser.add_argument('-4', '--timestamps', action='append_const', dest='switches', const=4, help='Only find cut positions. Requires matched_images.txt')
+parser.add_argument('-5', '--split', action='append_const', dest='switches', const=5, help='Only extract segments at cut markers. Requires cuts.txt')
+parser.add_argument('-6', '--save', action='append_const', dest='switches', const=6, help='Only connect segements and save final result. Requires segments.txt')
 
 args = parser.parse_args()
-if ((args.site is not None) and
-    (args.model is None)):
-  parser.error('The --site argument requires a --model argument')
+
+if ((((args.model is not None) and 
+    (args.site is None))) or
+    ((args.site is not None) and
+    (args.model is None))):
+  parser.error('The -model argument requires a -site argument')
 
 video_name = args.file
 sample_interval = args.interval
@@ -79,6 +84,7 @@ if args.site is not None:
   site = args.site.lower()
 else:
   site = None
+fastmode = args.quick
 keep = args.keep
 verbose = args.verbose
 
@@ -86,6 +92,7 @@ print('\nINFO:  Input file: ')
 print(str(video_name))
 print('\nINFO:  Running with arguments: ')
 print('-i ' + str(sample_interval) + ' -c ' + str(cut_trigger) + ' -d ' + str(min_segment_duration)+ ' -e ' + str(segment_extension) + ' -b ' + str(skip_begin) + ' -f ' + str(skip_finish) )
+if fastmode: print('\nINFO:  NudeNet was set to Fast Mode')
 
 # Create variables in case no --overwrite given
 overwrite = False
@@ -121,8 +128,10 @@ if config:
       if (cammodel['name'].lower() == model):
         if (((site is not None) and (cammodel['site'].lower() == site)) or
           ((site is None) and (cammodel['site'].lower() == ''))):
-          frame_duration = cammodel['interval']
-          frame_extension = cammodel['extension']
+          sample_interval = cammodel['interval']
+          cut_trigger = cammodel['cut']
+          min_segment_duration = cammodel['duration']
+          segment_extension = cammodel['extension']
           checkinglist = cammodel['search'].split(',')
           skip_begin = cammodel['begin']
           skip_finish = cammodel['finish']
@@ -175,15 +184,15 @@ try:
       code_sections.append(i)
     #keep temporary directory if user opted to use a specific section
     keep = True
-    print('\nINFO:  Execution restricted by user.')
+    print('\nINFO:  Execution restricted by user:')
     print('        ' + 'Only the following program steps will be processed:')
     if 1 in code_sections: print('        ' + '- Step 1 of 6: Creation of image samples')
     if 2 in code_sections: print('        ' + '- Step 2 of 6: Analysis through NudeNet AI')
     if 3 in code_sections: print('        ' + '- Step 3 of 6: Find tags')
-    if 4 in code_sections: print('        ' + '- Step 3 of 6: Find cut markers')
-    if 5 in code_sections: print('        ' + '- Step 4 of 6: Split segments at cut markers')
-    if 6 in code_sections: print('        ' + '- Step 5 of 6: Connect segments and save final result')
-    print('INFO:  Option --keep was set to true automatically.')
+    if 4 in code_sections: print('        ' + '- Step 4 of 6: Find cut markers')
+    if 5 in code_sections: print('        ' + '- Step 5 of 6: Extract segments at cut markers')
+    if 6 in code_sections: print('        ' + '- Step 6 of 6: Connect segments and save final result')
+    print('INFO:  Option --keep was set to true automatically:')
     print('        ' + 'Temporary files will be kept for further processing.')
 #if the user didn't specify any sections run all sections
 except: code_sections = [1,2,3,4,5,6]
@@ -191,7 +200,7 @@ except: code_sections = [1,2,3,4,5,6]
 # Creation of temporary folders
 print('\nINFO:  Creating temporary directory ...')
 if Path(tmpdir).exists():
-    print('WARN:  The following temporary folder already exists:')
+    print('WARN:  The following temporary folder will be overwritten:')
     print(os.path.abspath(tmpdir))
     print('\nAre you sure you want to potentially overwrite previous results?')
     print('[y/n] ')
@@ -206,7 +215,7 @@ if Path(tmpdir).exists():
           try: 
             shutil.rmtree(tmpdir, ignore_errors=True)
             os.mkdir(tmpdir)
-          except: sys.exit('Removal and recreation of the tmpdir failed for step 1')
+          except: sys.exit('ERROR:  Removal and recreation of the tmpdir failed for step 1. This usually happens when the files or folders are still locked/opened.')
           os.mkdir(images_dir)
           os.mkdir(segments_dir)
         stop = 1
@@ -219,6 +228,7 @@ else:
     os.mkdir(tmpdir)
     print('INFO:  Created temporary directory')
   except OSError: sys.exit('Creation of the temporary directory failed')
+print('\n')
 
 # Filenames used
 all_images_txt_path = os.path.join(tmpdir, 'all_images.txt')
@@ -228,7 +238,11 @@ cuts_txt_path = os.path.join(tmpdir, 'cuts.txt')
 segments_txt_path = os.path.join(segments_dir, 'segments.txt')
 
 if 1 in code_sections: #on/off switch for code
-  print('\nINFO:  Step 1 of 6: Creating sample images ...')
+  if fastmode: max_side_length = 800
+  else: max_side_length = 1280
+  if verbose and fastmode: print('INFO:  Step 1 of 6: Fast mode activated:')
+  if verbose and fastmode: print('INFO:  Step 1 of 6: Images will be resized to a max side length of ' + str(max_side_length) )
+  print('INFO:  Step 1 of 6: Creating sample images ...')
   #Delete previously created folder to rerun steps
   if Path(images_dir).exists(): shutil.rmtree(images_dir, ignore_errors=True)
   os.mkdir(images_dir)
@@ -236,52 +250,71 @@ if 1 in code_sections: #on/off switch for code
   #Delete previously created output to rerun steps
   if Path(all_images_txt_path).exists(): os.remove(all_images_txt_path)
   #Create images with ffmpeg
-  with open(all_images_txt_path,"w") as all_images_txt:
-   for interval in range(skip_begin, duration, sample_interval):
-     image_filename = str(interval).zfill(7) + '.jpg'
-     image_inputpath = '-i "'+ video_path + '"'
-     image_inputoptions = '-v quiet -y -skip_frame nokey -ss ' + str(interval)
-     image_outputoptions = '-vf select="eq(pict_type\\,I),scale=800:-1" -an -q:v 2 -vframes 1' + ' ' + image_filename
-     os.system('ffmpeg' + ' ' + image_inputoptions + ' ' + image_inputpath + ' ' + image_outputoptions)
-     all_images_txt.write(image_filename + '\n')
-     if verbose: print(image_filename)
+  with open(all_images_txt_path,"w", newline='') as all_images_txt:
+    image_ffmpeg_filenames = '%07d.jpg'
+    image_ffmpeg_inputpath = '-i "'+ video_path + '"'
+    if fastmode: image_ffmpeg_resize = "',scale=\'" + str(max_side_length) + ":" + str(max_side_length) + ":force_original_aspect_ratio=decrease\'"
+    else: image_ffmpeg_resize = "',scale=\'" + str(max_side_length) + ":" + str(max_side_length) + ":force_original_aspect_ratio=decrease\'"
+    image_ffmpeg_inputoptions = ' -v quiet -y -skip_frame nokey -copyts -start_at_zero -ss ' + str(skip_begin)
+    image_ffmpeg_outputoptions = '-t ' + str(duration) + ' -vf "fps=1,select=\'not(mod(t,' + str(sample_interval) + '))' + image_ffmpeg_resize + '"' + ' -vsync 0 -an -qmin 1 -q:v 1' + ' ' + image_ffmpeg_filenames
+    image_ffmpeg_cmd = 'ffmpeg' + ' ' + image_ffmpeg_inputoptions + ' ' + image_ffmpeg_inputpath + ' ' + image_ffmpeg_outputoptions
+    if verbose: print(image_ffmpeg_cmd)
+    os.system(image_ffmpeg_cmd)
+    image_csv = csv.writer(all_images_txt)
+    file_list = [f for f in os.listdir(images_dir) if re.search(r'[0-9]{7}.jpg', f)]
+    image_count = 0
+    for file in file_list:
+      image_csv.writerow([file])
+      if verbose: print(file)
+      image_count +=1
   os.chdir(startdir)
-  print('INFO:  Step 1 of 6: Finished creating sample images')
+  print('INFO:  Step 1 of 6: Finished creating ' + str(image_count) + ' sample images.\n')
   
 if 2 in code_sections: #on/off switch for code
-  print('\nINFO:  Step 2 of 6: Analysing images with NudeNet ...')
+  if verbose and fastmode: print('INFO:  Step 2 of 6: Fast mode for NudeNet was activated')
+  print('INFO:  Step 2 of 6: Analysing images with NudeNet ...')
   os.chdir(images_dir)
   #Delete previously created output to rerun steps
   if Path(analysis_txt_path).exists(): os.remove(analysis_txt_path)
   #Load images into NudeNet for analysis
-  with open(all_images_txt_path,"r") as all_images_txt, open(analysis_txt_path,"w") as analysis_txt:
-    images = [line.rstrip('\n') for line in all_images_txt]
+  with open(all_images_txt_path,"r") as all_images_txt, open(analysis_txt_path,"w",newline='') as analysis_txt:
+#    images = [line.rstrip('\n') for line in all_images_txt]
+    images = []
+    for row in csv.reader(all_images_txt): images.append(row[0])
+    tags =[]
+    z = 0
     for image in images:
-      output  = detector.detect(image)
-      y = 0
-      stringoutput = ''
-      while y < len(output):
-        match = re.search(r'\b[A-Z].*?\b', str(output[y]))
-        stringoutput += str(match.group()) + '  '
-        y +=1
-      analysis_txt.write(image + '    ' + stringoutput + '\n')
-      if verbose: print(image + ' - ' + stringoutput)
+      #correcting wrong json output from NudeNet
+      if fastmode: json_string = str(detector.detect(image, mode='fast')).replace("'",'"')
+      else: json_string = str(detector.detect(image)).replace("'",'"')
+      json_object = json.loads(json_string)
+      #don't touch the following loop unless you have some time. surprisingly hard to figure out...
+      for i in range(0,len(list(json_object))):
+        pairs = json_object[i].items()
+        tags.append(list(pairs)[2][1])
+      tag_line = [image] + sorted(tags)
+      csv.writer(analysis_txt,delimiter=' ').writerow(tag_line)
+      if verbose: print(' '.join(tag_line))
+      tags.clear()
+      z += 1
   os.chdir(startdir)
   print('INFO:  Step 2 of 6: Finished analyzing images with NudeNet')
 
 if 3 in code_sections: #on/off switch for code
-  print('\nINFO:  Step 3 of 6: Matching user specified tags ...')
+  print('\nINFO:  Step 3 of 6: Finding selected tags ...')
   os.chdir(tmpdir)
   #delete previously created output to rerun steps
   if Path(matched_images_txt_path).exists(): os.remove(matched_images_txt_path)
+  match_count = 0
   with open(analysis_txt_path,"r") as analysis_txt, open(matched_images_txt_path,"w") as matched_images_txt:
     for line in analysis_txt:
       for check in checkinglist:
         if check in line:
           matched_images_txt.write(line)
+          match_count +=1
           break
   os.chdir(startdir)
-  print('INFO:  Step 3 of 6: Finished matching user specified tags')
+  print('INFO:  Step 3 of 6: Found selected tags in ' + str(match_count) + ' images.')
 
 if 4 in code_sections: #on/off switch for code
   print('\nINFO:  Step 4 of 6: Finding cut positions ...')  
@@ -326,20 +359,32 @@ if 4 in code_sections: #on/off switch for code
         else: e = duration
         segment_duration = e - b
         #finalize segment
-      #only finalize if the result would have non negative duration
-      #only finalize segment if long enough
+        #only finalize if the result would have non negative duration
+        #only finalize segment if long enough
         if (segment_duration >= 0) and (segment_duration >= min_segment_duration):
           beginnings.append(b)
           endings.append(e)
 
-      # else go to next sample without doing anything
-#      i += 1
+    # else go to next sample without doing anything
 
     if verbose: print('Image list: ' + str(imagelist) + '\nBeginnings: ' + str(beginnings) + '\nEndings: ' + str(endings))
+    
+# Write results to file    
     for i in range(0, len(beginnings)):
       cuts_txt.write(str(beginnings[i]) + ' ' + str(endings[i]) + '\n')
+      
+# Abort if segment is identical to the source video
+    if beginnings[0] == 0 and endings[-1] >= duration - 1:
+      print('INFO:  Step 4 of 6: Found segment is identical to the source video.')
+      print('INFO:  Step 4 of 6: Nothing to cut... :)')
+      sys.exit()
+    elif len(beginnings) < 1:
+      print('INFO:  Step 4 of 6: No segments found.')
+      print('INFO:  Step 4 of 6: Nothing to cut... :(')
+      sys.exit()
+    else:
+      print('INFO:  Step 4 of 6: Found cut positions resulting in ' + str(len(beginnings)) + ' segments.')
     os.chdir(startdir)
-    print('INFO:  Step 4 of 6: Finished finding cut positions.')
 
 #option to confirm overwriting in ffmpeg
 if args.overwrite == True:
@@ -351,7 +396,7 @@ if verbose: quietffmpeg = ''
 else: quietffmpeg = ' -v quiet'
 
 if 5 in code_sections: #on/off switch for code
-  print('\nINFO:  Step 5 of 6: Creating video segments with ffmpeg ...')
+  print('\nINFO:  Step 5 of 6: Extracting video segments with ffmpeg ...')
   #Delete previously created folder to rerun steps
   if Path(segments_dir).exists(): shutil.rmtree(segments_dir, ignore_errors=True)
   os.mkdir(segments_dir)
@@ -374,13 +419,13 @@ if 5 in code_sections: #on/off switch for code
       if verbose: print(ffmpeg_cut_cmd)
       os.system(ffmpeg_cut_cmd)
   os.chdir(startdir)
-  print('INFO:  Step 5 of 6: Finished creating video segments with ffmpeg.')
+  print('INFO:  Step 5 of 6: Finished extracting ' + str(len(timestamps)) + ' video segments.')
 
 if 6 in code_sections: #on/off switch for code
   os.chdir(segments_dir)
   print('\nINFO:  Step 6 of 6: Creating final video with ffmpeg ...')
   ffmpeg_concat_options = quietffmpeg + ffmpeg_overwrite + ' -vsync 0 -safe 0 -f concat -i "' + segments_txt_path + '" -c copy "'
-  ffmpeg_concat_destname = video_path.rsplit('.', 1)[0] + '_recfilter-i' + str(sample_interval) + '-c' + str(cut_trigger) + '-d' + str(min_segment_duration) + '-e' + str(segment_extension) + '.' + str(fileext) + '"'
+  ffmpeg_concat_destname = video_path.rsplit('.', 1)[0] + '_recfilter-i' + str(sample_interval) + '-c' + str(cut_trigger) + '-d' + str(min_segment_duration) + '-e' + str(segment_extension) + + '.' + str(fileext) +'"'
   ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ffmpeg_concat_destname
   if verbose: print(ffmpeg_concat_cmd)
   os.system(ffmpeg_concat_cmd)
