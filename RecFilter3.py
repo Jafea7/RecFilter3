@@ -312,6 +312,10 @@ if 3 in code_sections: #on/off switch for code
               match_count +=1
               break
   os.chdir(startdir)
+  if match_count == 0:
+    print('INFO:  Step 4 of 6: No matches found :(')
+    print('INFO:  Step 4 of 6: Nothing to do...')
+    sys.exit()
   print('INFO:  Step 3 of 6: Found selected tags in ' + str(match_count) + ' images.')
 
 if 4 in code_sections: #on/off switch for code
