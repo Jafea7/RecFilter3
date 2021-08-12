@@ -86,12 +86,6 @@ fastmode = args.quick
 keep = args.keep
 verbose = args.verbose
 
-print('\nINFO:  Input file: ')
-print(str(video_name))
-print('\nINFO:  Running with arguments: ')
-print('-i ' + str(sample_interval) + ' -c ' + str(cut_trigger) + ' -d ' + str(min_segment_duration)+ ' -e ' + str(segment_extension) + ' -b ' + str(skip_begin) + ' -f ' + str(skip_finish) )
-if fastmode: print('\nINFO:  NudeNet was set to Fast Mode')
-
 # Create variables in case no --overwrite given
 overwrite = False
 if args.overwrite == True:
@@ -138,8 +132,13 @@ if config:
     if not found:
       print('\nINFO:  \'' + model + '\' not found, using defaults.')
 
+print('\nINFO:  Input file: ')
+print(str(video_name))
+print('\nINFO:  Running with arguments: ')
+print('-i ' + str(sample_interval) + ' -c ' + str(cut_trigger) + ' -d ' + str(min_segment_duration)+ ' -e ' + str(segment_extension) + ' -b ' + str(skip_begin) + ' -f ' + str(skip_finish) )
 print('\nINFO:  Tags that will be matched: ')
 print(str(checkinglist))
+if fastmode: print('\nINFO:  NudeNet was set to Fast Mode')
 
 if checkinglist[0] == 'NONE':
   exit()
