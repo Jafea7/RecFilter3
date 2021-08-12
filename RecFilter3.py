@@ -51,7 +51,8 @@ parser.add_argument('-f', '--finish', type=int, default=0, help='Skip x seconds 
 parser.add_argument('-m', '--model', type=str, help='Model name for config preset')
 parser.add_argument('-s', '--site', type=str, help='Site that the model appears on')
 parser.add_argument('-q', '--quick', default=False, action='store_true', help='Lower needed certainty for matches from 0.6 to 0.5 (default: False)')
-parser.add_argument('-k', '--keep', action='store_true', help='Keep temporary working files (default: False)')
+parser.add_argument('-l', '--logs', action='store_true', help='Keep the logs after every step (default: False)')
+parser.add_argument('-k', '--keep', action='store_true', help='Keep all temporary files (default: False)')
 parser.add_argument('-v', '--verbose', action='store_true', help='Output working information (default: False)')
 parser.add_argument('-y', '--overwrite', default=False, action='store_true', help='Confirm all questions to overwrite (batch process)')
 parser.add_argument('-1', '--images', action='append_const', dest='switches', const=1, help='Only create image samples')
@@ -84,6 +85,7 @@ else:
   site = None
 fastmode = args.quick
 keep = args.keep
+logs = args.logs
 verbose = args.verbose
 
 # Create variables in case no --overwrite given
@@ -100,15 +102,16 @@ except:
   print('\nINFO:  No config file \'%s\' found.' % config_path)
   config = False
 
-# Default checkinglist is gender neutral, if a particular gender is required it can be entered into the config file per model
+# Default wanted is gender neutral, if a particular gender is required it can be entered into the config file per model
 # Other terms can also be set in the config, see https://github.com/Jafea7/RecFilter2 for valid terms
-checkinglist = ['EXPOSED_BREAST', 'EXPOSED_BUTTOCKS', 'EXPOSED_ANUS', 'EXPOSED_GENITALIA', 'EXPOSED_BELLY']
+wanted = ['EXPOSED_BREAST', 'EXPOSED_BUTTOCKS', 'EXPOSED_ANUS', 'EXPOSED_GENITALIA', 'EXPOSED_BELLY']
+unwanted = []
 fileext = 'mp4' # In case there's no videoext entry in the config
 
 if config:
   if 'default' in data:
     if str(data['default']) != "":
-      checkinglist = data['default'].split(',')
+      wanted = data['default'].split(',')
   if 'videoext' in data:
     if str(data['videoext']) != "":
       fileext = data['videoext']
@@ -124,7 +127,8 @@ if config:
           cut_trigger = cammodel['cut']
           min_segment_duration = cammodel['duration']
           segment_extension = cammodel['extension']
-          checkinglist = cammodel['search'].split(',')
+          wanted = cammodel['search'].split(',')
+          unwanted = cammodel['exclude'].split(',')
           skip_begin = cammodel['begin']
           skip_finish = cammodel['finish']
           found = True
@@ -134,13 +138,13 @@ if config:
 
 print('\nINFO:  Input file: ')
 print(str(video_name))
+print('\nINFO:  Tags that will be matched: ')
+print(str(wanted))
 print('\nINFO:  Running with arguments: ')
 print('-i ' + str(sample_interval) + ' -c ' + str(cut_trigger) + ' -d ' + str(min_segment_duration)+ ' -e ' + str(segment_extension) + ' -b ' + str(skip_begin) + ' -f ' + str(skip_finish) )
-print('\nINFO:  Tags that will be matched: ')
-print(str(checkinglist))
 if fastmode: print('\nINFO:  NudeNet was set to Fast Mode')
 
-if checkinglist[0] == 'NONE':
+if wanted[0] == 'NONE':
   exit()
 
 imagelist = []
@@ -208,13 +212,6 @@ if Path(tmpdir).exists():
       else:
         answer = str( input().lower().strip() )
       if answer == 'y':
-        if 1 in code_sections: #on/off switch for code
-          try: 
-            shutil.rmtree(tmpdir, ignore_errors=True)
-            os.mkdir(tmpdir)
-          except: sys.exit('ERROR:  Removal and recreation of the tmpdir failed for step 1. This usually happens when the files or folders are still locked/opened.')
-          os.mkdir(images_dir)
-          os.mkdir(segments_dir)
         stop = 1
       elif answer == 'n':
         sys.exit('Creation of the temporary directory failed')
@@ -305,11 +302,15 @@ if 3 in code_sections: #on/off switch for code
   match_count = 0
   with open(analysis_txt_path,"r") as analysis_txt, open(matched_images_txt_path,"w") as matched_images_txt:
     for line in analysis_txt:
-      for check in checkinglist:
+      for check in wanted:    
         if check in line:
-          matched_images_txt.write(line)
-          match_count +=1
-          break
+          for uncheck in unwanted:
+            if uncheck in line: 
+              break
+            else:
+              matched_images_txt.write(line)
+              match_count +=1
+              break
   os.chdir(startdir)
   print('INFO:  Step 3 of 6: Found selected tags in ' + str(match_count) + ' images.')
 
@@ -430,9 +431,12 @@ if 6 in code_sections: #on/off switch for code
   print('INFO:  Step 6 of 6: Finished creating final video with ffmpeg.')
 
 #popdir() # Return to temporary directory parent
-if (not keep): # Delete the temporary directory if no -keep
+if (not keep) and (not logs): # Delete the temporary directory if no -keep
   print('\nINFO:  Deleting temporary files')
   shutil.rmtree(tmpdir, ignore_errors=True)
-
+elif logs:
+  print('\nINFO:  Keeping logs, deleting images and segments')
+  shutil.rmtree(images_dir, ignore_errors=True)
+  shutil.rmtree(segments_dir, ignore_errors=True)
 popdir() # Return to initial directory
 print('--- Finished ---\n')
