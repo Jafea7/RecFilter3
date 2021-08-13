@@ -261,8 +261,9 @@ if 1 in code_sections: #on/off switch for code
       image_csv.writerow([file])
       if verbose: print(file)
       image_count +=1
+  print('INFO:  Step 1 of 6: Finished creating ' + str(image_count) + ' sample images.')    
   os.chdir(startdir)
-  print('INFO:  Step 1 of 6: Finished creating ' + str(image_count) + ' sample images.\n')
+  
   
 if 2 in code_sections: #on/off switch for code
   if verbose and fastmode: print('INFO:  Step 2 of 6: Fast mode for NudeNet was activated')
@@ -288,8 +289,9 @@ if 2 in code_sections: #on/off switch for code
       if verbose: print(' '.join(tag_line))
       tags.clear()
       z += 1
+      if not verbose: print('INFO:  Step 2 of 6: Sample images analysed: ' + str(z) + ' out of ' + str(len(images)),end='\r')
   os.chdir(startdir)
-  print('INFO:  Step 2 of 6: Finished analyzing images with NudeNet')
+  print('INFO:  Step 2 of 6: Finished analyzing ' + str(z) + ' images with NudeNet')
 
 if 3 in code_sections: #on/off switch for code
   print('\nINFO:  Step 3 of 6: Finding selected tags ...')
@@ -421,6 +423,7 @@ if 5 in code_sections: #on/off switch for code
       segments_txt.write('file ' + segment_name + '\n')
       if verbose: print(ffmpeg_cut_cmd)
       os.system(ffmpeg_cut_cmd)
+      if not verbose: print('INFO:  Step 5 of 6: Extracting segments: ' + str(i+1) + ' out of ' + str(len(timestamps)),end='\r')
   os.chdir(startdir)
   print('INFO:  Step 5 of 6: Finished extracting ' + str(len(timestamps)) + ' video segments.')
 
