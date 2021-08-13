@@ -153,7 +153,7 @@ beginnings = []
 endings = []
 
 i = 0
-b = 0
+b = None
 e = 0
 p = 0
 z = 0
@@ -281,11 +281,8 @@ if 2 in code_sections: #on/off switch for code
       #correcting wrong json output from NudeNet
       if fastmode: json_string = str(detector.detect(image, mode='fast')).replace("'",'"')
       else: json_string = str(detector.detect(image)).replace("'",'"')
-      json_object = json.loads(json_string)
-      #don't touch the following loop unless you have some time. surprisingly hard to figure out...
-      for i in range(0,len(list(json_object))):
-        pairs = json_object[i].items()
-        tags.append(list(pairs)[2][1])
+      for entry in json.loads(json_string):
+        tags.append(entry['label'])
       tag_line = [image] + sorted(tags)
       csv.writer(analysis_txt,delimiter=' ').writerow(tag_line)
       if verbose: print(' '.join(tag_line))
@@ -302,21 +299,25 @@ if 3 in code_sections: #on/off switch for code
   match_count = 0
   with open(analysis_txt_path,"r") as analysis_txt, open(matched_images_txt_path,"w") as matched_images_txt:
     for line in analysis_txt:
-      for check in wanted:    
+      foundtags = False
+      for check in wanted:
         if check in line:
+          foundtags = True
           for uncheck in unwanted:
-            if uncheck in line: 
-              break
-            else:
-              matched_images_txt.write(line)
-              match_count +=1
-              break
+            #string has to be nonempty, otherwise "empty in nonempty" will always uncheck
+            if uncheck: 
+              if uncheck in line:
+                foundtags = False
+                break #one unwanted tag is enough to exclude the whole line
+      if foundtags:
+        matched_images_txt.write(line)
+        match_count +=1
   os.chdir(startdir)
-  if match_count == 0:
-    print('INFO:  Step 4 of 6: No matches found :(')
-    print('INFO:  Step 4 of 6: Nothing to do...')
-    sys.exit()
   print('INFO:  Step 3 of 6: Found selected tags in ' + str(match_count) + ' images.')
+  if match_count == 0:
+    print('INFO:  Step 3 of 6: No matches found :(')
+    print('INFO:  Step 3 of 6: Nothing to do...')
+    sys.exit()
 
 if 4 in code_sections: #on/off switch for code
   print('\nINFO:  Step 4 of 6: Finding cut positions ...')  
@@ -345,12 +346,11 @@ if 4 in code_sections: #on/off switch for code
       
 # case for finding the start of a segment
       #if first element has matches in reach become beginning
-      #if previous match is too far away
+      #or if previous match is too far away
       if (i == 0 and gap_to_next_match <= cut_duration) or (gap_to_prev_match > cut_duration):
         #save beginning timestamp
-        if segment_start > 0:
-          b = segment_start #only include segment_extension if timestamp doesn't become negative
-        else: b = 0
+        if segment_start >= 0: b = segment_start #segment_extension only if timestamp doesn't become negative
+        else: b = 0 #otherwise use 0 as a beginning
 
 # case for finding the end of a segment and finalizing it
       #if next match is too far away
@@ -359,13 +359,14 @@ if 4 in code_sections: #on/off switch for code
         #save ending timestamp, only include segment_extension if timestamp doesn't exceed file duration
         if duration > segment_end: e = segment_end
         else: e = duration
-        segment_duration = e - b
-        #finalize segment
-        #only finalize if the result would have non negative duration
-        #only finalize segment if long enough
-        if (segment_duration >= 0) and (segment_duration >= min_segment_duration):
-          beginnings.append(b)
-          endings.append(e)
+        if b: #Initialize b as None, since 0 would always make the first cut start at 0
+          segment_duration = e - b
+          #finalize segment
+          #only finalize if the result would have a positive duration
+          #only finalize segment if long enough
+          if (segment_duration > 0) and (segment_duration >= min_segment_duration):
+            beginnings.append(b)
+            endings.append(e)
 
     # else go to next sample without doing anything
 
