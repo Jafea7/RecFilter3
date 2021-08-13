@@ -261,7 +261,7 @@ if 1 in code_sections: #on/off switch for code
       image_csv.writerow([file])
       if verbose: print(file)
       image_count +=1
-  print('INFO:  Step 1 of 6: Finished creating ' + str(image_count) + ' sample images.')    
+  print('INFO:  Step 1 of 6: Finished creating ' + str(image_count) + ' sample images.\n')    
   os.chdir(startdir)
   
   
@@ -290,8 +290,8 @@ if 2 in code_sections: #on/off switch for code
       tags.clear()
       z += 1
       if not verbose: print('INFO:  Step 2 of 6: Sample images analysed: ' + str(z) + ' out of ' + str(len(images)),end='\r')
-  os.chdir(startdir)
   print('INFO:  Step 2 of 6: Finished analyzing ' + str(z) + ' images with NudeNet')
+  os.chdir(startdir)
 
 if 3 in code_sections: #on/off switch for code
   print('\nINFO:  Step 3 of 6: Finding selected tags ...')
@@ -314,12 +314,12 @@ if 3 in code_sections: #on/off switch for code
       if foundtags:
         matched_images_txt.write(line)
         match_count +=1
-  os.chdir(startdir)
   print('INFO:  Step 3 of 6: Found selected tags in ' + str(match_count) + ' images.')
   if match_count == 0:
     print('INFO:  Step 3 of 6: No matches found :(')
     print('INFO:  Step 3 of 6: Nothing to do...')
     sys.exit()
+  os.chdir(startdir)
 
 if 4 in code_sections: #on/off switch for code
   print('\nINFO:  Step 4 of 6: Finding cut positions ...')  
@@ -389,7 +389,7 @@ if 4 in code_sections: #on/off switch for code
       sys.exit()
     else:
       print('INFO:  Step 4 of 6: Found cut positions resulting in ' + str(len(beginnings)) + ' segments.')
-    os.chdir(startdir)
+  os.chdir(startdir)
 
 #option to confirm overwriting in ffmpeg
 if args.overwrite == True:
@@ -424,8 +424,8 @@ if 5 in code_sections: #on/off switch for code
       if verbose: print(ffmpeg_cut_cmd)
       os.system(ffmpeg_cut_cmd)
       if not verbose: print('INFO:  Step 5 of 6: Extracting segments: ' + str(i+1) + ' out of ' + str(len(timestamps)),end='\r')
-  os.chdir(startdir)
   print('INFO:  Step 5 of 6: Finished extracting ' + str(len(timestamps)) + ' video segments.')
+  os.chdir(startdir)
 
 if 6 in code_sections: #on/off switch for code
   os.chdir(segments_dir)
@@ -435,8 +435,8 @@ if 6 in code_sections: #on/off switch for code
   ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ffmpeg_concat_destname
   if verbose: print(ffmpeg_concat_cmd)
   os.system(ffmpeg_concat_cmd)
-  os.chdir(startdir)
   print('INFO:  Step 6 of 6: Finished creating final video with ffmpeg.')
+  os.chdir(startdir)
 
 #popdir() # Return to temporary directory parent
 if (not keep) and (not logs): # Delete the temporary directory if no -keep
