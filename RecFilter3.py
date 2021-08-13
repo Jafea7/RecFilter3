@@ -378,11 +378,12 @@ if 4 in code_sections: #on/off switch for code
     for i in range(0, len(beginnings)):
       cuts_txt.write(str(beginnings[i]) + ' ' + str(endings[i]) + '\n')
       
-# Abort if segment is identical to the source video
+# Abort if no segments are found
     if len(endings) < 1:
       print('INFO:  Step 4 of 6: No segments found.')
       print('INFO:  Step 4 of 6: Nothing to cut... :(')
       sys.exit()
+# Abort if segment is identical to the source video
     elif beginnings[0] == 0 and endings[-1] >= duration - 1:
       print('INFO:  Step 4 of 6: Found segment is identical to the source video.')
       print('INFO:  Step 4 of 6: Nothing to cut... :)')
