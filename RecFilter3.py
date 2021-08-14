@@ -48,7 +48,7 @@ parser.add_argument('-d', '--duration', type=int, default=10, help='Discard segm
 parser.add_argument('-e', '--extension', type=int, default=3, help='Extend start and end of segments by x seconds (default: 3)')
 parser.add_argument('-b', '--beginning', type=int, default=0, help='Skip x seconds of beginning (default: 1)')
 parser.add_argument('-f', '--finish', type=int, default=0, help='Skip x seconds of finish (default: 0)')
-parser.add_argument('-m', '--model', type=str, help='Model name for config preset')
+parser.add_argument('-p', '--preset', type=str, help='Name of the config preset to use')
 parser.add_argument('-s', '--site', type=str, help='Site that the model appears on')
 parser.add_argument('-q', '--quick', default=False, action='store_true', help='Lower needed certainty for matches from 0.6 to 0.5 (default: False)')
 parser.add_argument('-l', '--logs', action='store_true', help='Keep the logs after every step (default: False)')
@@ -65,8 +65,8 @@ parser.add_argument('-6', '--save', action='append_const', dest='switches', cons
 args = parser.parse_args()
 
 if ((args.site is not None) and
-    (args.model is None)):
-  parser.error('The --site argument requires a --model argument')
+    (args.preset is None)):
+  parser.error('The --site argument requires a --preset argument')
 
 video_name = args.file
 sample_interval = args.interval
@@ -75,10 +75,10 @@ cut_trigger = args.cut
 segment_extension = args.extension
 skip_begin = args.beginning
 skip_finish = args.finish
-if args.model is not None:
-  model = args.model.lower()
+if args.preset is not None:
+  preset = args.preset.lower()
 else:
-  model = None
+  preset = None
 if args.site is not None:
   site = args.site.lower()
 else:
@@ -102,7 +102,7 @@ except:
   print('\nINFO:  No config file \'%s\' found.' % config_path)
   config = False
 
-# Default wanted is gender neutral, if a particular gender is required it can be entered into the config file per model
+# Default wanted is gender neutral, if a particular gender is required it can be entered into the config file per preset
 # Other terms can also be set in the config, see https://github.com/Jafea7/RecFilter2 for valid terms
 wanted = ['EXPOSED_BREAST', 'EXPOSED_BUTTOCKS', 'EXPOSED_ANUS', 'EXPOSED_GENITALIA', 'EXPOSED_BELLY']
 unwanted = []
@@ -117,31 +117,33 @@ if config:
       fileext = data['videoext']
     else:
       fileext = 'mp4'
-  if (model is not None):
+  if (preset is not None):
     found = False
-    for cammodel in data['models']:
-      if (cammodel['name'].lower() == model):
+    for cammodel in data['presets']:
+      if (cammodel['name'].lower() == preset):
         if (((site is not None) and (cammodel['site'].lower() == site)) or
           ((site is None) and (cammodel['site'].lower() == ''))):
-          sample_interval = cammodel['interval']
-          cut_trigger = cammodel['cut']
-          min_segment_duration = cammodel['duration']
-          segment_extension = cammodel['extension']
-          wanted = cammodel['search'].split(',')
-          unwanted = cammodel['exclude'].split(',')
-          skip_begin = cammodel['begin']
-          skip_finish = cammodel['finish']
+          if cammodel['interval']: sample_interval = cammodel['interval']
+          if cammodel['cut']: cut_trigger = cammodel['cut']
+          if cammodel['duration']: min_segment_duration = cammodel['duration']
+          if cammodel['extension']: segment_extension = cammodel['extension']
+          if cammodel['include']: wanted = cammodel['search'].split(',')
+          if cammodel['exclude']: unwanted = cammodel['exclude'].split(',')
+          if cammodel['begin']: skip_begin = cammodel['begin']
+          if cammodel['finish']: skip_finish = cammodel['finish']
           found = True
           break
     if not found:
-      print('\nINFO:  \'' + model + '\' not found, using defaults.')
+      print('\nINFO:  \'' + preset + '\' not found, using defaults.')
 
 print('\nINFO:  Input file: ')
 print(str(video_name))
-print('\nINFO:  Tags that will be matched: ')
-print(str(wanted))
 print('\nINFO:  Running with arguments: ')
 print('-i ' + str(sample_interval) + ' -c ' + str(cut_trigger) + ' -d ' + str(min_segment_duration)+ ' -e ' + str(segment_extension) + ' -b ' + str(skip_begin) + ' -f ' + str(skip_finish) )
+print('\nINFO:  Tags that will be matched: ')
+print(str(wanted))
+print('\nINFO:  Tags that will be excluded: ')
+print(str(unwanted))
 if fastmode: print('\nINFO:  NudeNet was set to Fast Mode')
 
 if wanted[0] == 'NONE':

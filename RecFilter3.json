@@ -1,7 +1,7 @@
 {
   "default": "EXPOSED_GENITALIA,EXPOSED_ANUS",
   "videoext": "mkv",
-  "models": [
+  "presets": [
     {
       "name": "normal",
       "site": "",
@@ -9,7 +9,7 @@
       "cut": 15,
       "duration": 10,
       "extension": 3,
-      "search": "EXPOSED_GENITALIA,EXPOSED_ANUS",
+      "include": "EXPOSED_GENITALIA,EXPOSED_ANUS",
       "begin": 0,
       "finish": 0
     },
@@ -20,7 +20,7 @@
       "cut": 15,
       "duration": 10,
       "extension": 3,
-      "search": "EXPOSED_GENITALIA",
+      "include": "EXPOSED_GENITALIA",
       "begin": 0,
       "finish": 0
     },
@@ -31,7 +31,7 @@
       "cut": 15,
       "duration": 10,
       "extension": 3,
-      "search": "EXPOSED_GENITALIA,EXPOSED_ANUS,EXPOSED_BREAST_F",
+      "include": "EXPOSED_GENITALIA,EXPOSED_ANUS,EXPOSED_BREAST_F",
       "begin": 0,
       "finish": 0
     },
@@ -42,7 +42,7 @@
       "cut": 20,
       "duration": 1,
       "extension": 4,
-      "search": "EXPOSED_GENITALIA,EXPOSED_ANUS",
+      "include": "EXPOSED_GENITALIA,EXPOSED_ANUS",
       "begin": 0,
       "finish": 0
     },
@@ -53,7 +53,7 @@
       "cut": 1,
       "duration": 1,
       "extension": 2,
-      "search": "EXPOSED_GENITALIA,EXPOSED_ANUS",
+      "include": "EXPOSED_GENITALIA,EXPOSED_ANUS",
       "begin": 0,
       "finish": 0
     },
@@ -64,7 +64,7 @@
       "cut": 60,
       "duration": 1,
       "extension": 5,
-      "search": "EXPOSED_GENITALIA,EXPOSED_ANUS,EXPOSED_BREAST_F,EXPOSED_BUTTOCKS",
+      "include": "EXPOSED_GENITALIA,EXPOSED_ANUS,EXPOSED_BREAST_F,EXPOSED_BUTTOCKS",
       "begin": 0,
       "finish": 0
     }
