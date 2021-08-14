@@ -68,7 +68,7 @@ if ((args.site is not None) and
     (args.preset is None)):
   parser.error('The --site argument requires a --preset argument')
 
-video_name = args.file
+video_name = Path(args.file)
 sample_interval = args.interval
 min_segment_duration = args.duration
 segment_gap = args.gap
@@ -93,7 +93,7 @@ overwrite = False
 if args.overwrite == True:
   overwrite = True #allow overwriting temp folder
 
-config_path = os.path.abspath(sys.argv[0]).rsplit('.', 1)[0] + '.json'
+config_path = Path(os.path.splitext(sys.argv[0])[0] + '.json')
 try:
   with open(config_path) as f:
     data = json.load(f)
@@ -160,18 +160,18 @@ e = 0
 p = 0
 z = 0
 
-video_path = os.path.abspath(video_name) # Get the full video path
+video_path = Path(video_name).resolve() # Get the full video path
 startdir = Path(video_path).parent
 tmpdirnaming = '~' + Path(video_name).stem
-tmpdir = os.path.join(Path(startdir, tmpdirnaming))
-images_dir = os.path.join(tmpdir, 'images')
-segments_dir = os.path.join(tmpdir, 'segments')
+tmpdir = Path(startdir).joinpath(tmpdirnaming)
+images_dir = Path(tmpdir) / 'images'
+segments_dir = Path(tmpdir) / 'segments'
 
 # Change to video container directory
 pushdir(Path(video_path).parent) 
 
 #Finding video duration
-ffprobe_out = int( float( subprocess.check_output('ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 -i "' + video_path + '"', shell=True).decode() ) )
+ffprobe_out = int( float( subprocess.check_output('ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 -i "' + str(video_path) + '"', shell=True).decode() ) )
 duration = ffprobe_out - skip_finish
 if verbose:
   print('\nINFO:  Duration of input video: ')
@@ -232,6 +232,7 @@ analysis_txt_path = os.path.join(tmpdir, 'analysis.txt')
 matched_images_txt_path = os.path.join(tmpdir, 'matched_images.txt')
 cuts_txt_path = os.path.join(tmpdir, 'cuts.txt')
 segments_txt_path = os.path.join(segments_dir, 'segments.txt')
+addtofilename = '_recfilter-i' + str(sample_interval) + '-c' + str(segment_gap) + '-d' + str(min_segment_duration) + '-e' + str(segment_extension)
 
 if 1 in code_sections: #on/off switch for code
   if fastmode: max_side_length = 800
@@ -248,7 +249,7 @@ if 1 in code_sections: #on/off switch for code
   #Create images with ffmpeg
   with open(all_images_txt_path,"w", newline='') as all_images_txt:
     image_ffmpeg_filenames = '%07d.jpg'
-    image_ffmpeg_inputpath = '-i "'+ video_path + '"'
+    image_ffmpeg_inputpath = '-i "'+ str(video_path) + '"'
     if fastmode: image_ffmpeg_resize = "',scale=\'" + str(max_side_length) + ":" + str(max_side_length) + ":force_original_aspect_ratio=decrease\'"
     else: image_ffmpeg_resize = "',scale=\'" + str(max_side_length) + ":" + str(max_side_length) + ":force_original_aspect_ratio=decrease\'"
     image_ffmpeg_inputoptions = ' -v quiet -y -skip_frame nokey -copyts -start_at_zero -ss ' + str(skip_begin)
@@ -318,9 +319,11 @@ if 3 in code_sections: #on/off switch for code
         match_count +=1
   print('INFO:  Step 3 of 6: Found selected tags in ' + str(match_count) + ' images.')
   if match_count == 0:
-    print('INFO:  Step 3 of 6: No matches found :(')
-    print('INFO:  Step 3 of 6: Nothing to do...')
-    sys.exit()
+    os.chdir(startdir)
+    with open(Path(video_path.stem + addtofilename + '.txt'),"w") as info_txt:
+      infotext = 'INFO:  Step 3 of 6: No matches found :('
+      info_txt.write(infotext)
+    sys.exit(infotext)
   os.chdir(startdir)
 
 if 4 in code_sections: #on/off switch for code
@@ -381,20 +384,24 @@ if 4 in code_sections: #on/off switch for code
 # Write results to file    
     for i in range(0, len(beginnings)):
       cuts_txt.write(str(beginnings[i]) + ' ' + str(endings[i]) + '\n')
-      
-# Abort if no segments are found
-    if len(endings) < 1:
-      print('INFO:  Step 4 of 6: No segments found.')
-      print('INFO:  Step 4 of 6: Nothing to cut... :(')
-      sys.exit()
-# Abort if segment is identical to the source video
-    elif beginnings[0] == 0 and endings[-1] >= duration - 1:
-      print('INFO:  Step 4 of 6: Found segment is identical to the source video.')
-      print('INFO:  Step 4 of 6: Nothing to cut... :)')
-      sys.exit()
-    else:
-      print('INFO:  Step 4 of 6: Found cut positions resulting in ' + str(len(beginnings)) + ' segments.')
+
   os.chdir(startdir)
+
+# Abort if no segments are found
+  if len(endings) < 1:
+    infotext = 'INFO:  Step 4 of 6: No segments found. Nothing to cut... :('
+    with open(Path(video_path.stem + addtofilename + '.txt'),"w") as info_txt:
+      info_txt.write(infotext)
+    sys.exit(infotext)
+# Abort if segment is identical to the source video
+  elif beginnings[0] == 0 and endings[-1] >= duration - 1:
+    infotext = 'INFO:  Step 4 of 6: Found segment is identical to the source video. Nothing to cut... :)'
+    with open(Path(video_path.stem + addtofilename + '.txt'),"w") as info_txt:
+      info_txt.write(infotext)
+    sys.exit(infotext)
+  else:
+    print('INFO:  Step 4 of 6: Found cut positions resulting in ' + str(len(beginnings)) + ' segments.')
+
 
 #option to confirm overwriting in ffmpeg
 if args.overwrite == True:
@@ -407,6 +414,7 @@ else: quietffmpeg = ' -v quiet'
 
 if 5 in code_sections: #on/off switch for code
   print('\nINFO:  Step 5 of 6: Extracting video segments with ffmpeg ...')
+  os.chdir(startdir)
   #Delete previously created folder to rerun steps
   if Path(segments_dir).exists(): shutil.rmtree(segments_dir, ignore_errors=True)
   os.mkdir(segments_dir)
@@ -423,7 +431,7 @@ if 5 in code_sections: #on/off switch for code
       segment_name = timestamps[i][0] + '-' + timestamps[i][1] + '.' + str(fileext)
       ffmpeg_cut_input_options = ffmpeg_overwrite + quietffmpeg + ' -vsync 0 -ss ' + str(timestamps[i][0]) + ' -i "'
       ffmpeg_cut_output_options = '" -t ' + str(ffmpeg_cut_duration) + ' -c copy ' + segment_name
-      ffmpeg_cut_cmd = 'ffmpeg' + ' ' + ffmpeg_cut_input_options + video_path + ffmpeg_cut_output_options
+      ffmpeg_cut_cmd = 'ffmpeg' + ' ' + ffmpeg_cut_input_options + str(video_path) + ffmpeg_cut_output_options
       #Write output filenames into file for ffmpeg -f concat
       segments_txt.write('file ' + segment_name + '\n')
       if verbose: print(ffmpeg_cut_cmd)
@@ -435,9 +443,9 @@ if 5 in code_sections: #on/off switch for code
 if 6 in code_sections: #on/off switch for code
   os.chdir(segments_dir)
   print('\nINFO:  Step 6 of 6: Creating final video with ffmpeg ...')
-  ffmpeg_concat_options = quietffmpeg + ffmpeg_overwrite + ' -vsync 0 -safe 0 -f concat -i "' + segments_txt_path + '" -c copy "'
-  ffmpeg_concat_destname = video_path.rsplit('.', 1)[0] + '_recfilter-i' + str(sample_interval) + '-c' + str(segment_gap) + '-d' + str(min_segment_duration) + '-e' + str(segment_extension) + '.' + str(fileext) + '"'
-  ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ffmpeg_concat_destname
+  ffmpeg_concat_options = quietffmpeg + ffmpeg_overwrite + ' -vsync 0 -safe 0 -f concat -i "' + segments_txt_path + '" -c copy'
+  ffmpeg_concat_destname = '"' + os.path.splitext(video_path)[0] + addtofilename + '.' + str(fileext) + '"'
+  ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ' ' + ffmpeg_concat_destname
   if verbose: print(ffmpeg_concat_cmd)
   os.system(ffmpeg_concat_cmd)
   print('INFO:  Step 6 of 6: Finished creating final video with ffmpeg.')
@@ -447,7 +455,7 @@ if 6 in code_sections: #on/off switch for code
 if (not keep) and (not logs): # Delete the temporary directory if no -keep
   print('\nINFO:  Deleting temporary files')
   shutil.rmtree(tmpdir, ignore_errors=True)
-elif logs:
+elif (not keep) and logs:
   print('\nINFO:  Keeping logs, deleting images and segments')
   shutil.rmtree(images_dir, ignore_errors=True)
   shutil.rmtree(segments_dir, ignore_errors=True)
