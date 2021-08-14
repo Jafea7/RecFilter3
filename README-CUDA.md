@@ -19,9 +19,32 @@ A nVidia GPU with CUDA.
 
 ## Installation:
 
-Clone/download the repo and extract to a directory.
-Open a console/terminal and enter:
-`pip install -r requirements` to install the RecFilter/Nudenet dependencies.
+
+**RecFilter3 and NudeNet:**
+
+Clone/download the repo, extract to a directory, then open a console/terminal within that directory.
+
+Install the dependencies by entering:
+```
+pip install -r requirements.txt
+```
+or
+```
+python -m pip install -r requirements.txt
+```
+
+If you are running Python 3.8/3.9 on Windows 10 then open a console and enter the following commands:
+
+```
+python -m pip uninstall protobuf
+python -m pip install protobuf
+```
+
+This will ensure you are using the latest version of `protobuf` which fixes a bug with running slow on Windows 10.
+
+
+
+**CUDA Drivers:**
 
 Make sure you have the latest nVida GFX drivers for your card installed.
 
@@ -34,15 +57,6 @@ Go to [cuDNN download](https://developer.nvidia.com/rdp/cudnn-download), you wil
 **NOTE:** It gives a download for `Windows (x86)` but it's actually `Windows (x64)` libraries.
 
 Install the cuDNN as per the instructions: [cuDNN Installation Guide](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html)
-
-If you are running Python 3.8/3.9 on Windows 10 then open a Powershell console and enter the following commands:
-
-```
-python -m pip uninstall protobuf
-python -m pip install protobuf
-```
-
-This will ensure you are using the latest version of `protobuf` which fixes a bug with running slow on Windows 10.
 
 Run the following commands in the console while you have it open:
 
