@@ -134,7 +134,18 @@ if config:
           found = True
           break
     if not found:
-      print('\nINFO:  \'' + preset + '\' not found, using defaults.')
+      print('\nINFO:  Preset \'' + preset + '\' not found, using defaults.')
+      print("\nThere might be a typo in your --preset argument.\nAre you sure you want to continue with default arguments?")
+      print('[y/n] ')
+      stop = False
+      while stop == False:
+        answer = str( input().lower().strip() )
+        if answer == 'y':
+          stop = True
+        elif answer == 'n':
+          stop = True
+          sys.exit()
+        else: print("Please enter y or n.")
 
 print('\nINFO:  Input file: ')
 print(str(video_name))
