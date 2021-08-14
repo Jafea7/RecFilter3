@@ -19,7 +19,9 @@ A nVidia GPU with CUDA.
 
 ## Installation:
 
-Clone/download the repo and enter `pip install -r requirements` to install the RecFilter/Nudenet dependencies.
+Clone/download the repo and extract to a directory.
+Open a console/terminal and enter:
+`pip install -r requirements` to install the RecFilter/Nudenet dependencies.
 
 Make sure you have the latest nVida GFX drivers for your card installed.
 
