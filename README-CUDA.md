@@ -59,7 +59,7 @@ Install the cuDNN as per the instructions: [cuDNN Installation Guide](https://do
 
 Open a console/terminal:
 
-We need to replace `onnxruntime` with onnxruntime-gpu` to utilise CUDA:
+We need to replace `onnxruntime` with `onnxruntime-gpu` to utilise CUDA:
 ```
 python -m pip uninstall -y onnxruntime
 python -m pip install onnxruntime-gpu
