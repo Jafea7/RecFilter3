@@ -335,6 +335,7 @@ if 4 in code_sections: #on/off switch for code
       imagelist.append(x)
       lines.append(line)
  
+    found_segment_start = False
     for i in range(0,len(imagelist)):
 # variables
       last_element = len(imagelist) - 1
@@ -354,8 +355,9 @@ if 4 in code_sections: #on/off switch for code
       if (i == 0 and gap_to_next_match <= cut_duration) or (gap_to_prev_match > cut_duration):
         #save beginning timestamp
         if segment_start >= 0: b = segment_start #segment_extension only if timestamp doesn't become negative
-        else: b = 0 #otherwise use 0 as a beginning
-
+        else: 
+          b = 0 #otherwise use 0 as a beginning
+          found_segment_start = True
 # case for finding the end of a segment and finalizing it
       #if next match is too far away
       #if last element while previous match is close
@@ -363,7 +365,7 @@ if 4 in code_sections: #on/off switch for code
         #save ending timestamp, only include segment_extension if timestamp doesn't exceed file duration
         if duration > segment_end: e = segment_end
         else: e = duration
-        if b: #Initialize b as None, since 0 would always make the first cut start at 0
+        if found_segment_start: #Initialize b as None, since 0 would always make the first cut start at 0
           segment_duration = e - b
           #finalize segment
           #only finalize if the result would have a positive duration
