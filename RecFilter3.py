@@ -127,7 +127,7 @@ if config:
           if preset_name['cut']: cut_trigger = preset_name['cut']
           if preset_name['duration']: min_segment_duration = preset_name['duration']
           if preset_name['extension']: segment_extension = preset_name['extension']
-          if preset_name['include']: wanted = preset_name['search'].split(',')
+          if preset_name['include']: wanted = preset_name['include'].split(',')
           if preset_name['exclude']: unwanted = preset_name['exclude'].split(',')
           if preset_name['begin']: skip_begin = preset_name['begin']
           if preset_name['finish']: skip_finish = preset_name['finish']
