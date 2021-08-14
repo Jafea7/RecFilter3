@@ -42,15 +42,15 @@ This will ensure you are using the latest version of `protobuf` which fixes a bu
 
 Make sure you have the latest nVida GFX drivers for your card installed.
 
-Install the latest version of the CUDA Toolkit available from [NVIDIA](https://developer.NVIDIA.com/cuda-downloads)
+Install the latest version of the [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) available from NVIDIA.
 
-Install the latest version of the cuDNN libraries, this requires registering for a [NVIDIA Developer account](https://developer.NVIDIA.com/), (free).
+Install the latest version of the cuDNN libraries, this requires registering for a [NVIDIA Developer account](https://developer.nvidia.com/), (free).
 
-Go to [cuDNN download](https://developer.NVIDIA.com/rdp/cudnn-download), you will need to login, agree to the license, then select your download.
+Go to [cuDNN download](https://developer.nvidia.com/rdp/cudnn-download), you will need to login, agree to the license, then select your download.
 
 **NOTE:** It gives a download for `Windows (x86)` but it's actually `Windows (x64)` libraries.
 
-Install the cuDNN as per the instructions: [cuDNN Installation Guide](https://docs.NVIDIA.com/deeplearning/cudnn/install-guide/index.html)
+Install the cuDNN as per the instructions: [cuDNN Installation Guide](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html)
 
 **Additional Python Modules:**
 
