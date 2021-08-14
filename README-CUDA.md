@@ -52,6 +52,8 @@ Go to [cuDNN download](https://developer.nvidia.com/rdp/cudnn-download), you wil
 
 Install the cuDNN as per the instructions: [cuDNN Installation Guide](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html)
 
+Reboot your computer.
+
 **Additional Python Modules:**
 
 Open a console/terminal:
