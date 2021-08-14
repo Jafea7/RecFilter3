@@ -119,18 +119,18 @@ if config:
       fileext = 'mp4'
   if (preset is not None):
     found = False
-    for cammodel in data['presets']:
-      if (cammodel['name'].lower() == preset):
-        if (((site is not None) and (cammodel['site'].lower() == site)) or
-          ((site is None) and (cammodel['site'].lower() == ''))):
-          if cammodel['interval']: sample_interval = cammodel['interval']
-          if cammodel['cut']: cut_trigger = cammodel['cut']
-          if cammodel['duration']: min_segment_duration = cammodel['duration']
-          if cammodel['extension']: segment_extension = cammodel['extension']
-          if cammodel['include']: wanted = cammodel['search'].split(',')
-          if cammodel['exclude']: unwanted = cammodel['exclude'].split(',')
-          if cammodel['begin']: skip_begin = cammodel['begin']
-          if cammodel['finish']: skip_finish = cammodel['finish']
+    for preset_name in data['presets']:
+      if (preset_name['name'].lower() == preset):
+        if (((site is not None) and (preset_name['site'].lower() == site)) or
+          ((site is None) and (preset_name['site'].lower() == ''))):
+          if preset_name['interval']: sample_interval = preset_name['interval']
+          if preset_name['cut']: cut_trigger = preset_name['cut']
+          if preset_name['duration']: min_segment_duration = preset_name['duration']
+          if preset_name['extension']: segment_extension = preset_name['extension']
+          if preset_name['include']: wanted = preset_name['search'].split(',')
+          if preset_name['exclude']: unwanted = preset_name['exclude'].split(',')
+          if preset_name['begin']: skip_begin = preset_name['begin']
+          if preset_name['finish']: skip_finish = preset_name['finish']
           found = True
           break
     if not found:
