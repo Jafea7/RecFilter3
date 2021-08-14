@@ -73,23 +73,3 @@ Convert the checkpoint file:
 ```
 python -m tf2onnx.convert --saved-model <path to extracted archive>\detector_v2_default_checkpoint_tf --opset 11 --output <path to original checkpoint file>\detector_v2_default_checkpoint.onnx
 ```
-
-
-
-
-# The newest CUDA AND cuDNN need to be installed (the latter one needs a registration on Nvidia's site). As long as the current version of CUDA runs with the newest version of onnxruntime-gpu you are good. If you want to install an older onnxruntime (or older NudeNet) you have to install the specific versions of CUDA and cuDNN that onnxruntime-gpu (same version numbers as onnxruntime) needs: https://onnxruntime.ai/docs/reference/execution-providers/CUDA-ExecutionProvider.html
-#nudenet doesn't need tensorflow, but it needs onnxruntime-gpu
-python -m pip install nudenet
-#don't try try to install onnxruntime and onnxruntime-gpu simultaneously (and remove onnxruntime again). it will break onnxruntime-gpu and will have to be reinstalled.
-python -m pip uninstall -y onnxruntime
-python -m pip install onnxruntime-gpu
-#tf2onnx needs tensorflow or tensorflow-gpu, regardess of the version
-python -m pip install tensorflow-gpu
-python -m pip install tf2onnx
-#rename 
-C:\Users\xxxxxx\.NudeNet\detector_v2_default_checkpoint.onnx
-#to
-detector_v2_default_checkpoint.onnx.backup
-#download and extract: 
-https://github.com/notAI-tech/NudeNet/releases/download/v0/detector_v2_default_checkpoint_tf.tar
-python -m tf2onnx.convert --saved-model C:\Users\xxxxxx\.NudeNet\detector_v2_default_checkpoint_tf --opset 11 --output C:\Users\xxxxxx\.NudeNet\detector_v2_default_checkpoint.onnx
