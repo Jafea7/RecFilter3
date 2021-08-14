@@ -1,6 +1,7 @@
 {
   "default": "EXPOSED_GENITALIA,EXPOSED_ANUS",
   "videoext": "mkv",
+  "workingdir": "",
   "presets": [
     {
       "name": "normal",
