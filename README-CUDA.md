@@ -18,7 +18,6 @@ A nVidia GPU with CUDA.
 ---
 
 ## Installation:
----
 
 **RecFilter3 and NudeNet:**
 
@@ -42,8 +41,6 @@ python -m pip install protobuf
 
 This will ensure you are using the latest version of `protobuf` which fixes a bug with running slow on Windows 10.
 
-
-
 **CUDA Drivers:**
 
 Make sure you have the latest nVida GFX drivers for your card installed.
@@ -58,11 +55,17 @@ Go to [cuDNN download](https://developer.nvidia.com/rdp/cudnn-download), you wil
 
 Install the cuDNN as per the instructions: [cuDNN Installation Guide](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html)
 
-Run the following commands in the console while you have it open:
+**Additional Python Modules:**
 
+Open a console/terminal:
+
+We need to replace `onnxruntime` with onnxruntime-gpu` to utilise CUDA:
 ```
 python -m pip uninstall -y onnxruntime
 python -m pip install onnxruntime-gpu
+```
+We need to install the TensorFlow modules to convert the model:
+```
 python -m pip install tensorflow-gpu
 python -m pip install tf2onnx
 ```
@@ -71,7 +74,9 @@ python -m pip install tf2onnx
 
 Download the NudeNet detector checkpoint archive, [NudeNet Detector Checkpoint](https://github.com/notAI-tech/NudeNet/releases/download/v0/detector_v2_default_checkpoint_tf.tar), and extract to a directory.
 
-Find the file `detector_v2_default_checkpoint.onnx` on your system, for Windows this will be `C:\Users\<username>\.NudeNet\detector_v2_default_checkpoint.onnx`.
+Find the file `detector_v2_default_checkpoint.onnx` on your system, for Windows this will be:
+
+`C:\Users\<username>\.NudeNet\detector_v2_default_checkpoint.onnx`.
 
 Rename it to `detector_v2_default_checkpoint.onnx.backup`.
 
