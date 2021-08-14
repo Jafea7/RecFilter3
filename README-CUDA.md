@@ -1,8 +1,5 @@
 ---
-WIP
-
 Information regarding getting RecFilter v3, (and v2), to use an nVidia GPU.
-
 ---
 
 **Credits to @Datahell for working all this out.**
