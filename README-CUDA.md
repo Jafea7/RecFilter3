@@ -18,7 +18,7 @@ A nVidia GPU with CUDA.
 ---
 
 ## Installation:
-
+---
 
 **RecFilter3 and NudeNet:**
 
