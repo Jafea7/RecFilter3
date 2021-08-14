@@ -43,10 +43,10 @@ print('\n--- RecFilter2 ---')
 parser = argparse.ArgumentParser(prog='RecFilter', description='RecFilter: Remove SFW sections of videos')
 parser.add_argument('file', type=str, help='Video file to process')
 parser.add_argument('-i', '--interval', type=int, default=5, help='Interval between image samples (default: 5)')
-parser.add_argument('-c', '--cut', type=int, default=30, help='Trigger a cut when x seconds without match (default: 30)')
+parser.add_argument('-g', '--gap', type=int, default=30, help='Split segments more than x seconds apart (default: 30)')
 parser.add_argument('-d', '--duration', type=int, default=10, help='Discard segments shorter than x seconds (default: 10)')
 parser.add_argument('-e', '--extension', type=int, default=3, help='Extend start and end of segments by x seconds (default: 3)')
-parser.add_argument('-b', '--beginning', type=int, default=0, help='Skip x seconds of beginning (default: 1)')
+parser.add_argument('-b', '--beginning', type=int, default=0, help='Skip x seconds of beginning (default: 0)')
 parser.add_argument('-f', '--finish', type=int, default=0, help='Skip x seconds of finish (default: 0)')
 parser.add_argument('-p', '--preset', type=str, help='Name of the config preset to use')
 parser.add_argument('-s', '--site', type=str, help='Site that the model appears on')
@@ -71,7 +71,7 @@ if ((args.site is not None) and
 video_name = args.file
 sample_interval = args.interval
 min_segment_duration = args.duration
-cut_trigger = args.cut
+segment_gap = args.gap
 segment_extension = args.extension
 skip_begin = args.beginning
 skip_finish = args.finish
@@ -124,7 +124,7 @@ if config:
         if (((site is not None) and (preset_name['site'].lower() == site)) or
           ((site is None) and (preset_name['site'].lower() == ''))):
           if preset_name['interval']: sample_interval = preset_name['interval']
-          if preset_name['cut']: cut_trigger = preset_name['cut']
+          if preset_name['gap']: segment_gap = preset_name['gap']
           if preset_name['duration']: min_segment_duration = preset_name['duration']
           if preset_name['extension']: segment_extension = preset_name['extension']
           if preset_name['include']: wanted = preset_name['include'].split(',')
@@ -139,7 +139,7 @@ if config:
 print('\nINFO:  Input file: ')
 print(str(video_name))
 print('\nINFO:  Running with arguments: ')
-print('-i ' + str(sample_interval) + ' -c ' + str(cut_trigger) + ' -d ' + str(min_segment_duration)+ ' -e ' + str(segment_extension) + ' -b ' + str(skip_begin) + ' -f ' + str(skip_finish) )
+print('-i ' + str(sample_interval) + ' -c ' + str(segment_gap) + ' -d ' + str(min_segment_duration)+ ' -e ' + str(segment_extension) + ' -b ' + str(skip_begin) + ' -f ' + str(skip_finish) )
 print('\nINFO:  Tags that will be matched: ')
 print(str(wanted))
 print('\nINFO:  Tags that will be excluded: ')
@@ -345,7 +345,7 @@ if 4 in code_sections: #on/off switch for code
       if i == last_element: gap_to_next_match = 0
       else: gap_to_next_match = imagelist[i + 1] - imagelist[i]
       #added time between two samples if they were split apart by 1 second
-      cut_duration = cut_trigger + 2 * segment_extension + 1
+      cut_duration = segment_gap + 2 * segment_extension + 1
       segment_start = imagelist[i] - segment_extension
       segment_end = imagelist[i] + segment_extension
       
@@ -436,7 +436,7 @@ if 6 in code_sections: #on/off switch for code
   os.chdir(segments_dir)
   print('\nINFO:  Step 6 of 6: Creating final video with ffmpeg ...')
   ffmpeg_concat_options = quietffmpeg + ffmpeg_overwrite + ' -vsync 0 -safe 0 -f concat -i "' + segments_txt_path + '" -c copy "'
-  ffmpeg_concat_destname = video_path.rsplit('.', 1)[0] + '_recfilter-i' + str(sample_interval) + '-c' + str(cut_trigger) + '-d' + str(min_segment_duration) + '-e' + str(segment_extension) + '.' + str(fileext) + '"'
+  ffmpeg_concat_destname = video_path.rsplit('.', 1)[0] + '_recfilter-i' + str(sample_interval) + '-c' + str(segment_gap) + '-d' + str(min_segment_duration) + '-e' + str(segment_extension) + '.' + str(fileext) + '"'
   ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ffmpeg_concat_destname
   if verbose: print(ffmpeg_concat_cmd)
   os.system(ffmpeg_concat_cmd)
