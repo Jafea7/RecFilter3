@@ -69,7 +69,8 @@ mv detector_v2_default_checkpoint.onnx detector_v2_default_checkpoint.onnx.backu
 ```
 
 Convert the checkpoint file:
-
 ```
 python -m tf2onnx.convert --saved-model <path to extracted archive>\detector_v2_default_checkpoint_tf --opset 11 --output <path to original checkpoint file>\detector_v2_default_checkpoint.onnx
 ```
+
+This should only take a couple of minutes, (depending on your hardware).
