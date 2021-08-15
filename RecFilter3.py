@@ -106,7 +106,7 @@ except:
 # Other terms can also be set in the config, see https://github.com/Jafea7/RecFilter3 for valid terms
 wanted = ['EXPOSED_BREAST', 'EXPOSED_BUTTOCKS', 'EXPOSED_ANUS', 'EXPOSED_GENITALIA', 'EXPOSED_BELLY']
 unwanted = []
-fileext = 'mp4' # In case there's no videoext entry in the config
+file_ext = 'mp4' # In case there's no videoext entry in the config
 
 if config:
   if 'default' in data:
@@ -114,9 +114,9 @@ if config:
       wanted = data['default'].split(',')
   if 'videoext' in data:
     if str(data['videoext']) != "":
-      fileext = data['videoext']
+      file_ext = data['videoext']
     else:
-      fileext = 'mp4'
+      file_ext = 'mp4'
   if (preset is not None):
     found = False
     for preset_name in data['presets']:
@@ -439,7 +439,7 @@ if 5 in code_sections: #on/off switch for code
       ffmpeg_cut_start = int(timestamps[i][0])
       ffmpeg_cut_end = int(timestamps[i][1])
       ffmpeg_cut_duration = ffmpeg_cut_end - ffmpeg_cut_start
-      segment_name = timestamps[i][0] + '-' + timestamps[i][1] + '.' + str(fileext)
+      segment_name = timestamps[i][0] + '-' + timestamps[i][1] + '.' + str(file_ext)
       ffmpeg_cut_input_options = ffmpeg_overwrite + quietffmpeg + ' -vsync 0 -ss ' + str(timestamps[i][0]) + ' -i "'
       ffmpeg_cut_output_options = '" -t ' + str(ffmpeg_cut_duration) + ' -c copy ' + segment_name
       ffmpeg_cut_cmd = 'ffmpeg' + ' ' + ffmpeg_cut_input_options + str(video_path) + ffmpeg_cut_output_options
@@ -455,7 +455,7 @@ if 6 in code_sections: #on/off switch for code
   os.chdir(segments_dir)
   print('\nINFO:  Step 6 of 6: Creating final video with ffmpeg ...')
   ffmpeg_concat_options = quietffmpeg + ffmpeg_overwrite + ' -vsync 0 -safe 0 -f concat -i "' + segments_txt_path + '" -c copy'
-  ffmpeg_concat_destname = '"' + os.path.splitext(video_path)[0] + addtofilename + '.' + str(fileext) + '"'
+  ffmpeg_concat_destname = '"' + os.path.splitext(video_path)[0] + addtofilename + '.' + str(file_ext) + '"'
   ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ' ' + ffmpeg_concat_destname
   if verbose: print(ffmpeg_concat_cmd)
   os.system(ffmpeg_concat_cmd)
