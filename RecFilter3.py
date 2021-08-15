@@ -150,7 +150,7 @@ if config:
 print('\nINFO:  Input file: ')
 print(str(video_name))
 print('\nINFO:  Running with arguments: ')
-print('-i ' + str(sample_interval) + ' -c ' + str(segment_gap) + ' -d ' + str(min_segment_duration)+ ' -e ' + str(segment_extension) + ' -b ' + str(skip_begin) + ' -f ' + str(skip_finish) )
+print('-i ' + str(sample_interval) + ' -g ' + str(segment_gap) + ' -d ' + str(min_segment_duration)+ ' -e ' + str(segment_extension) + ' -b ' + str(skip_begin) + ' -f ' + str(skip_finish) )
 print('\nINFO:  Tags that will be matched: ')
 print(str(wanted))
 print('\nINFO:  Tags that will be excluded: ')
@@ -243,7 +243,7 @@ analysis_txt_path = os.path.join(tmpdir, 'analysis.txt')
 matched_images_txt_path = os.path.join(tmpdir, 'matched_images.txt')
 cuts_txt_path = os.path.join(tmpdir, 'cuts.txt')
 segments_txt_path = os.path.join(segments_dir, 'segments.txt')
-addtofilename = '_recfilter-i' + str(sample_interval) + '-c' + str(segment_gap) + '-d' + str(min_segment_duration) + '-e' + str(segment_extension)
+addtofilename = '_recfilter-i' + str(sample_interval) + '-g' + str(segment_gap) + '-d' + str(min_segment_duration) + '-e' + str(segment_extension)
 
 if 1 in code_sections: #on/off switch for code
   if fastmode: max_side_length = 800
