@@ -14,9 +14,9 @@ from csv import reader
 
 detector = NudeDetector()
 
-#MIN_PYTHON = (3, 7, 9)
-#if sys.version_info < MIN_PYTHON:
-#    sys.exit("\nPython %s.%s.%s or later is required.\n" % MIN_PYTHON)
+MIN_PYTHON = (3, 7, 6)
+if sys.version_info < MIN_PYTHON:
+  sys.exit("\nPython %s.%s.%s or later is required.\n" % MIN_PYTHON)
 
 pushstack = []
 def pushdir(dirname):
