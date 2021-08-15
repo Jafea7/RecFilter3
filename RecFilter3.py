@@ -49,7 +49,7 @@ parser.add_argument('-e', '--extension', type=int, default=3, help='Extend start
 parser.add_argument('-b', '--beginning', type=int, default=0, help='Skip x seconds of beginning (default: 0)')
 parser.add_argument('-f', '--finish', type=int, default=0, help='Skip x seconds of finish (default: 0)')
 parser.add_argument('-p', '--preset', type=str, help='Name of the config preset to use')
-parser.add_argument('-s', '--site', type=str, help='Site that the model appears on')
+parser.add_argument('-s', '--subset', type=str, help='Subset of preset, eg. site that the model appears on')
 parser.add_argument('-q', '--quick', default=False, action='store_true', help='Lower needed certainty for matches from 0.6 to 0.5 (default: False)')
 parser.add_argument('-l', '--logs', action='store_true', help='Keep the logs after every step (default: False)')
 parser.add_argument('-k', '--keep', action='store_true', help='Keep all temporary files (default: False)')
@@ -66,7 +66,7 @@ args = parser.parse_args()
 
 if ((args.site is not None) and
     (args.preset is None)):
-  parser.error('The --site argument requires a --preset argument')
+  parser.error('The --subset argument requires a --preset argument')
 
 video_name = Path(args.file)
 sample_interval = args.interval
@@ -79,10 +79,10 @@ if args.preset is not None:
   preset = args.preset.lower()
 else:
   preset = None
-if args.site is not None:
-  site = args.site.lower()
+if args.subset is not None:
+  subset = args.subset.lower()
 else:
-  site = None
+  subset = None
 fastmode = args.quick
 keep = args.keep
 logs = args.logs
@@ -121,8 +121,8 @@ if config:
     found = False
     for preset_name in data['presets']:
       if (preset_name['name'].lower() == preset):
-        if (((site is not None) and (preset_name['site'].lower() == site)) or
-          ((site is None) and (preset_name['site'].lower() == ''))):
+        if (((subset is not None) and (preset_name['subset'].lower() == subset)) or
+          ((subset is None) and (preset_name['subset'].lower() == ''))):
           if preset_name['interval']: sample_interval = preset_name['interval']
           if preset_name['gap']: segment_gap = preset_name['gap']
           if preset_name['duration']: min_segment_duration = preset_name['duration']

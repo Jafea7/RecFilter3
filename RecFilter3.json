@@ -5,7 +5,7 @@
   "presets": [
     {
       "name": "normal",
-      "site": "",
+      "subset": "",
       "interval": 1,
       "cut": 15,
       "duration": 10,
@@ -17,7 +17,7 @@
     },
     {
       "name": "noanus",
-      "site": "",
+      "subset": "",
       "interval": 1,
       "cut": 15,
       "duration": 10,
@@ -29,7 +29,7 @@
     },
     {
       "name": "boobs",
-      "site": "",
+      "subset": "",
       "interval": 1,
       "cut": 15,
       "duration": 10,
@@ -41,7 +41,7 @@
     },
     {
       "name": "flashes",
-      "site": "",
+      "subset": "",
       "interval": 1,
       "cut": 20,
       "duration": 1,
@@ -53,7 +53,7 @@
     },
     {
       "name": "minimize",
-      "site": "",
+      "subset": "",
       "interval": 1,
       "cut": 1,
       "duration": 1,
@@ -65,7 +65,7 @@
     },
     {
       "name": "maximize",
-      "site": "",
+      "subset": "",
       "interval": 1,
       "cut": 60,
       "duration": 1,
