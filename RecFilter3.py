@@ -39,7 +39,7 @@ def exit_handler(signum, frame):
 
 signal.signal(signal.SIGINT, exit_handler) # Handle Ctrl-C
 
-print('\n--- RecFilter2 ---')
+print('\n--- RecFilter3 ---')
 parser = argparse.ArgumentParser(prog='RecFilter', description='RecFilter: Remove SFW sections of videos')
 parser.add_argument('file', type=str, help='Video file to process')
 parser.add_argument('-i', '--interval', type=int, default=5, help='Interval between image samples (default: 5)')
@@ -103,7 +103,7 @@ except:
   config = False
 
 # Default wanted is gender neutral, if a particular gender is required it can be entered into the config file per preset
-# Other terms can also be set in the config, see https://github.com/Jafea7/RecFilter2 for valid terms
+# Other terms can also be set in the config, see https://github.com/Jafea7/RecFilter3 for valid terms
 wanted = ['EXPOSED_BREAST', 'EXPOSED_BUTTOCKS', 'EXPOSED_ANUS', 'EXPOSED_GENITALIA', 'EXPOSED_BELLY']
 unwanted = []
 fileext = 'mp4' # In case there's no videoext entry in the config
