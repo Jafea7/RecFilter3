@@ -421,8 +421,8 @@ if 4 in code_sections: #on/off switch for code
     with open(Path(video_path.stem + addtofilename + '.txt'),"w") as info_txt:
       info_txt.write(infotext)
     sys.exit(infotext)
-# Abort if segment is identical to the source video
-  elif beginnings[0] == 0 and endings[-1] >= duration - 1:
+# Abort if first segment is identical to the whole source video
+  elif beginnings[0] == 0 and endings[0] >= duration - 1:
     infotext = 'INFO:  Step 4 of 6: Found segment is identical to the source video. Nothing to cut... :)'
     with open(Path(video_path.stem + addtofilename + '.txt'),"w") as info_txt:
       info_txt.write(infotext)
@@ -482,10 +482,10 @@ if 6 in code_sections: #on/off switch for code
 #popdir() # Return to temporary directory parent
 if (not keep) and (not logs): # Delete the temporary directory if no -keep
   print('\nINFO:  Deleting temporary files')
-  shutil.rmtree(tmpdir, ignore_errors=True)
+  subprocess.Popen(['python','-c','import shutil; import time; time.sleep(1); shutil.rmtree("' + tmpdir + '", ignore_errors=True)'])
 elif (not keep) and logs:
   print('\nINFO:  Keeping logs, deleting images and segments')
-  shutil.rmtree(images_dir, ignore_errors=True)
-  shutil.rmtree(segments_dir, ignore_errors=True)
+  subprocess.Popen(['python','-c','import shutil; import time; time.sleep(1); shutil.rmtree("' + images_dir + '", ignore_errors=True)'])
+  subprocess.Popen(['python','-c','import shutil; import time; time.sleep(1); shutil.rmtree("' + segments_dir + '", ignore_errors=True)'])
 popdir() # Return to initial directory
 print('--- Finished ---\n')
