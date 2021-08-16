@@ -119,7 +119,7 @@ if config:
       file_ext = 'mp4'
       
   def config_line_exists(key):
-  #the following try block on datatypes are necessary to check for existance, 
+  #the following try block on the datatype is necessary to check for existence, 
   #because in the case values are set to 0 it will give back False instead of True
     try:
       if type(preset_name[key]):
