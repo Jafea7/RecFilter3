@@ -64,7 +64,7 @@ parser.add_argument('-6', '--save', action='append_const', dest='switches', cons
 
 args = parser.parse_args()
 
-if ((args.site is not None) and
+if ((args.subset is not None) and
     (args.preset is None)):
   parser.error('The --subset argument requires a --preset argument')
 
@@ -117,20 +117,31 @@ if config:
       file_ext = data['videoext']
     else:
       file_ext = 'mp4'
+      
+  def config_line_exists(key):
+  #the following try block on datatypes are necessary to check for existance, 
+  #because in the case values are set to 0 it will give back False instead of True
+    try:
+      if type(preset_name[key]):
+        return True
+    except:
+      print('No "' + key + '" given in config for preset "' + preset_name['name'] + '". Falling back to default.')
+      return False
+
   if (preset is not None):
     found = False
     for preset_name in data['presets']:
       if (preset_name['name'].lower() == preset):
         if (((subset is not None) and (preset_name['subset'].lower() == subset)) or
           ((subset is None) and (preset_name['subset'].lower() == ''))):
-          if preset_name['interval']: sample_interval = preset_name['interval']
-          if preset_name['gap']: segment_gap = preset_name['gap']
-          if preset_name['duration']: min_segment_duration = preset_name['duration']
-          if preset_name['extension']: segment_extension = preset_name['extension']
-          if preset_name['include']: wanted = preset_name['include'].split(',')
-          if preset_name['exclude']: unwanted = preset_name['exclude'].split(',')
-          if preset_name['begin']: skip_begin = preset_name['begin']
-          if preset_name['finish']: skip_finish = preset_name['finish']
+          if config_line_exists('interval'): sample_interval = preset_name['interval']
+          if config_line_exists('gap'): segment_gap = preset_name['gap']
+          if config_line_exists('duration'): min_segment_duration = preset_name['duration']
+          if config_line_exists('extension'): segment_extension = preset_name['extension']
+          if config_line_exists('include'): wanted = preset_name['include'].split(',')
+          if config_line_exists('exclude'): unwanted = preset_name['exclude'].split(',')
+          if config_line_exists('begin'): skip_begin = preset_name['begin']
+          if config_line_exists('finish'): skip_finish = preset_name['finish']
           found = True
           break
     if not found:
@@ -170,6 +181,8 @@ b = None
 e = 0
 p = 0
 z = 0
+
+keyframe_interval = 1
 
 video_path = Path(video_name).resolve() # Get the full video path
 startdir = Path(video_path).parent
@@ -358,10 +371,12 @@ if 4 in code_sections: #on/off switch for code
       else: gap_to_prev_match = imagelist[i] - imagelist[i - 1]
       if i == last_element: gap_to_next_match = 0
       else: gap_to_next_match = imagelist[i + 1] - imagelist[i]
-      #added time between two samples if they were split apart by 1 second
-      cut_duration = segment_gap + 2 * segment_extension + 1
       segment_start = imagelist[i] - segment_extension
       segment_end = imagelist[i] + segment_extension
+      #different parts making up a cut inbetween sample images, where the resulting segments need to be split apart
+      #extension and a safety margin to make up for ffmpeg jumping to the closest keyframe during a cut on both ends
+      #this will avoid segment overlaps. default keyframe interval is set to 1.
+      cut_duration = segment_gap + 2 * segment_extension + 2 * keyframe_interval
 
 # case for finding the start of a segment
       #if first element has matches in reach become beginning
