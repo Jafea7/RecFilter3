@@ -8,6 +8,7 @@ import signal
 import subprocess
 import sys
 import csv
+import atexit
 from pathlib import Path
 from nudenet import NudeDetector
 from csv import reader
@@ -28,16 +29,15 @@ def popdir():
   global pushstack
   os.chdir(pushstack.pop())
 
-def exit_handler(signum, frame):
-  if video_path is not None: # Haven't got this then have only read config
-    if tmpdir is not None:   # If we got this then we're in the video or tmpdir
-      if Path(os.getcwd()).stem == tmpdir: # If in the tmpdir then retrace a dir
-        popdir()
-      # Launch tmpdir deletion as separate process, RecFilter locks a file which prevents deletion under certain circumstances
-      subprocess.Popen(["python","-c","import shutil; import time; time.sleep(1); shutil.rmtree(\"" + tmpdir + "\", ignore_errors=True)"])
-  sys.exit(0)
-
-signal.signal(signal.SIGINT, exit_handler) # Handle Ctrl-C
+def cleanup_directories(extent):
+  if extent == 'all': # Delete the temporary directory if no --keep
+    print('\nINFO:  Deleting temporary files')
+    shutil.rmtree(tmpdir, ignore_errors=True)
+  elif extent == 'sub': #Delete images and segments if --logs
+    print('\nINFO:  Keeping logs, deleting images and segments')
+    shutil.rmtree(images_dir, ignore_errors=True)
+    shutil.rmtree(segments_dir, ignore_errors=True)
+  popdir() # Return to initial directory
 
 print('\n--- RecFilter3 ---')
 parser = argparse.ArgumentParser(prog='RecFilter', description='RecFilter: Remove SFW sections of videos')
@@ -51,9 +51,9 @@ parser.add_argument('-f', '--finish', type=int, default=0, help='Skip x seconds 
 parser.add_argument('-p', '--preset', type=str, help='Name of the config preset to use')
 parser.add_argument('-s', '--subset', type=str, help='Subset of preset, eg. site that the model appears on')
 parser.add_argument('-q', '--quick', default=False, action='store_true', help='Lower needed certainty for matches from 0.6 to 0.5 (default: False)')
-parser.add_argument('-l', '--logs', action='store_true', help='Keep the logs after every step (default: False)')
-parser.add_argument('-k', '--keep', action='store_true', help='Keep all temporary files (default: False)')
-parser.add_argument('-v', '--verbose', action='store_true', help='Output working information (default: False)')
+parser.add_argument('-l', '--logs', default=False, action='store_true', help='Keep the logs after every step (default: False)')
+parser.add_argument('-k', '--keep', default=False, action='store_true', help='Keep all temporary files (default: False)')
+parser.add_argument('-v', '--verbose', default=False, action='store_true', help='Output working information (default: False)')
 parser.add_argument('-y', '--overwrite', default=False, action='store_true', help='Confirm all questions to overwrite (batch process)')
 parser.add_argument('-1', '--images', action='append_const', dest='switches', const=1, help='Only create image samples')
 parser.add_argument('-2', '--analyse', action='append_const', dest='switches', const=2, help='Only analyse with NudeNet AI. Requires all_images.txt')
@@ -84,14 +84,37 @@ if args.subset is not None:
 else:
   subset = None
 fastmode = args.quick
-keep = args.keep
-logs = args.logs
+
 verbose = args.verbose
 
 # Create variables in case no --overwrite given
 overwrite = False
 if args.overwrite == True:
   overwrite = True #allow overwriting temp folder
+
+#Path variables
+video_path = Path(video_name).resolve() # Get the full video path
+startdir = Path(video_path).parent
+tmpdirnaming = '~' + Path(video_name).stem
+tmpdir = Path(startdir).joinpath(tmpdirnaming)
+images_dir = Path(tmpdir) / 'images'
+segments_dir = Path(tmpdir) / 'segments'
+
+# Change to video container directory
+pushdir(Path(video_path).parent) 
+
+#registering the right exit handler to clean up directories
+if len(args.switches) > 0: keep = True
+else: keep = args.keep
+logs = args.logs
+print('keep: ' + str(keep))
+print('logs: ' + str(logs))
+if (keep == False) and (logs == False):
+  atexit.register(cleanup_directories,'all')
+  print('all directories')
+elif (keep == False) and (logs == True):
+  atexit.register(cleanup_directories,'sub')
+  print('sub directories')
 
 config_path = Path(os.path.splitext(sys.argv[0])[0] + '.json')
 try:
@@ -184,16 +207,6 @@ z = 0
 
 keyframe_interval = 1
 
-video_path = Path(video_name).resolve() # Get the full video path
-startdir = Path(video_path).parent
-tmpdirnaming = '~' + Path(video_name).stem
-tmpdir = Path(startdir).joinpath(tmpdirnaming)
-images_dir = Path(tmpdir) / 'images'
-segments_dir = Path(tmpdir) / 'segments'
-
-# Change to video container directory
-pushdir(Path(video_path).parent) 
-
 #Finding video duration
 ffprobe_out = int( float( subprocess.check_output('ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 -i "' + str(video_path) + '"', shell=True).decode() ) )
 duration = ffprobe_out - skip_finish
@@ -210,7 +223,6 @@ try:
     for i in range(args.switches[0], args.switches[-1] + 1):
       code_sections.append(i)
     #keep temporary directory if user opted to use a specific section
-    keep = True
     print('\nINFO:  Execution restricted by user:')
     print('        ' + 'Only the following program steps will be processed:')
     if 1 in code_sections: print('        ' + '- Step 1 of 6: Creation of image samples')
@@ -479,13 +491,4 @@ if 6 in code_sections: #on/off switch for code
   print('INFO:  Step 6 of 6: Finished creating final video with ffmpeg.')
   os.chdir(startdir)
 
-#popdir() # Return to temporary directory parent
-if (not keep) and (not logs): # Delete the temporary directory if no -keep
-  print('\nINFO:  Deleting temporary files')
-  subprocess.Popen(['python','-c','import shutil; import time; time.sleep(1); shutil.rmtree("' + tmpdir + '", ignore_errors=True)'])
-elif (not keep) and logs:
-  print('\nINFO:  Keeping logs, deleting images and segments')
-  subprocess.Popen(['python','-c','import shutil; import time; time.sleep(1); shutil.rmtree("' + images_dir + '", ignore_errors=True)'])
-  subprocess.Popen(['python','-c','import shutil; import time; time.sleep(1); shutil.rmtree("' + segments_dir + '", ignore_errors=True)'])
-popdir() # Return to initial directory
 print('--- Finished ---\n')
