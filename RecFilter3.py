@@ -107,8 +107,6 @@ pushdir(Path(video_path).parent)
 if len(args.switches) > 0: keep = True
 else: keep = args.keep
 logs = args.logs
-print('keep: ' + str(keep))
-print('logs: ' + str(logs))
 if (keep == False) and (logs == False):
   atexit.register(cleanup_directories,'all')
   print('all directories')
