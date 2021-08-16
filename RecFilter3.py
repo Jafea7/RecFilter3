@@ -129,7 +129,7 @@ if config:
       return False
 
   if (preset is not None):
-    found = False
+    preset_found = False
     for preset_name in data['presets']:
       if (preset_name['name'].lower() == preset):
         if (((subset is not None) and (preset_name['subset'].lower() == subset)) or
@@ -142,9 +142,9 @@ if config:
           if config_line_exists('exclude'): unwanted = preset_name['exclude'].split(',')
           if config_line_exists('begin'): skip_begin = preset_name['begin']
           if config_line_exists('finish'): skip_finish = preset_name['finish']
-          found = True
+          preset_found = True
           break
-    if not found:
+    if not preset_found:
       print('\nINFO:  Preset \'' + preset + '\' not found, using defaults.')
       print("\nThere might be a typo in your --preset argument.\nAre you sure you want to continue with default arguments?")
       print('[y/n] ')
@@ -256,7 +256,9 @@ analysis_txt_path = os.path.join(tmpdir, 'analysis.txt')
 matched_images_txt_path = os.path.join(tmpdir, 'matched_images.txt')
 cuts_txt_path = os.path.join(tmpdir, 'cuts.txt')
 segments_txt_path = os.path.join(segments_dir, 'segments.txt')
-addtofilename = '_recfilter-i' + str(sample_interval) + '-g' + str(segment_gap) + '-d' + str(min_segment_duration) + '-e' + str(segment_extension)
+if preset_found: addtofilename_preset = '_' + preset.replace(' ', '_')
+else: addtofilename_preset = ''
+addtofilename = '_recfilter-i' + str(sample_interval) + 'g' + str(segment_gap) + 'd' + str(min_segment_duration) + 'e' + str(segment_extension) + addtofilename_preset
 
 if 1 in code_sections: #on/off switch for code
   if fastmode: max_side_length = 800
