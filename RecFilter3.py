@@ -29,15 +29,12 @@ def popdir():
   global pushstack
   os.chdir(pushstack.pop())
 
-def cleanup_directories(extent):
-  if extent == 'all': # Delete the temporary directory if no --keep
-    print('\nINFO:  Deleting temporary files')
-    shutil.rmtree(tmpdir, ignore_errors=True)
-  elif extent == 'sub': #Delete images and segments if --logs
-    print('\nINFO:  Keeping logs, deleting images and segments')
-    shutil.rmtree(images_dir, ignore_errors=True)
-    shutil.rmtree(segments_dir, ignore_errors=True)
-  popdir() # Return to initial directory
+def clean_on_exit(path):
+  if verbose: print('Deleting ' + str(path))
+  if os.path.exists(path):
+    if os.path.isdir(path):
+      shutil.rmtree(path)
+    else: os.remove(path)
 
 print('\n--- RecFilter3 ---')
 parser = argparse.ArgumentParser(prog='RecFilter', description='RecFilter: Remove SFW sections of videos')
@@ -63,11 +60,9 @@ parser.add_argument('-5', '--split', action='append_const', dest='switches', con
 parser.add_argument('-6', '--save', action='append_const', dest='switches', const=6, help='Only connect segements and save final result. Requires segments.txt')
 
 args = parser.parse_args()
-
 if ((args.subset is not None) and
     (args.preset is None)):
   parser.error('The --subset argument requires a --preset argument')
-
 video_name = Path(args.file)
 sample_interval = args.interval
 min_segment_duration = args.duration
@@ -84,35 +79,14 @@ if args.subset is not None:
 else:
   subset = None
 fastmode = args.quick
-
+keep = args.keep
+logs = args.logs
 verbose = args.verbose
 
 # Create variables in case no --overwrite given
 overwrite = False
 if args.overwrite == True:
   overwrite = True #allow overwriting temp folder
-
-#Path variables
-video_path = Path(video_name).resolve() # Get the full video path
-startdir = Path(video_path).parent
-tmpdirnaming = '~' + Path(video_name).stem
-tmpdir = Path(startdir).joinpath(tmpdirnaming)
-images_dir = Path(tmpdir) / 'images'
-segments_dir = Path(tmpdir) / 'segments'
-
-# Change to video container directory
-pushdir(Path(video_path).parent) 
-
-#registering the right exit handler to clean up directories
-if len(args.switches) > 0: keep = True
-else: keep = args.keep
-logs = args.logs
-if (keep == False) and (logs == False):
-  atexit.register(cleanup_directories,'all')
-  print('all directories')
-elif (keep == False) and (logs == True):
-  atexit.register(cleanup_directories,'sub')
-  print('sub directories')
 
 config_path = Path(os.path.splitext(sys.argv[0])[0] + '.json')
 try:
@@ -129,6 +103,7 @@ wanted = ['EXPOSED_BREAST', 'EXPOSED_BUTTOCKS', 'EXPOSED_ANUS', 'EXPOSED_GENITAL
 unwanted = []
 file_ext = 'mp4' # In case there's no videoext entry in the config
 
+preset_found = False
 if config:
   if 'default' in data:
     if str(data['default']) != "":
@@ -150,7 +125,6 @@ if config:
       return False
 
   if (preset is not None):
-    preset_found = False
     for preset_name in data['presets']:
       if (preset_name['name'].lower() == preset):
         if (((subset is not None) and (preset_name['subset'].lower() == subset)) or
@@ -205,6 +179,17 @@ z = 0
 
 keyframe_interval = 1
 
+#Path variables
+video_path = Path(video_name).resolve() # Get the full video path
+startdir = Path(video_path).parent
+tmpdirnaming = '~' + Path(video_name).stem
+tmpdir = Path(startdir).joinpath(tmpdirnaming)
+images_dir = Path(tmpdir) / 'images'
+segments_dir = Path(tmpdir) / 'segments'
+
+# Change to video container directory
+pushdir(Path(video_path).parent) 
+
 #Finding video duration
 ffprobe_out = int( float( subprocess.check_output('ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 -i "' + str(video_path) + '"', shell=True).decode() ) )
 duration = ffprobe_out - skip_finish
@@ -220,7 +205,6 @@ try:
     args.switches.sort()
     for i in range(args.switches[0], args.switches[-1] + 1):
       code_sections.append(i)
-    #keep temporary directory if user opted to use a specific section
     print('\nINFO:  Execution restricted by user:')
     print('        ' + 'Only the following program steps will be processed:')
     if 1 in code_sections: print('        ' + '- Step 1 of 6: Creation of image samples')
@@ -229,8 +213,9 @@ try:
     if 4 in code_sections: print('        ' + '- Step 4 of 6: Find cut markers')
     if 5 in code_sections: print('        ' + '- Step 5 of 6: Extract segments at cut markers')
     if 6 in code_sections: print('        ' + '- Step 6 of 6: Connect segments and save final result')
-    print('INFO:  Option --keep was set to true automatically:')
-    print('        ' + 'Temporary files will be kept for further processing.')
+    logs = True
+    print('INFO:  Option --logs was set to true automatically:')
+    print('        ' + 'Text files will be kept as input for further processing.')
 #if the user didn't specify any sections run all sections
 except: code_sections = [1,2,3,4,5,6]
 
@@ -260,6 +245,9 @@ else:
   except OSError: sys.exit('Creation of the temporary directory failed')
 print('\n')
 
+#Delete tmpdir again after program termination
+if keep == False and logs == False: atexit.register(clean_on_exit,tmpdir)
+
 # Filenames used
 all_images_txt_path = os.path.join(tmpdir, 'all_images.txt')
 analysis_txt_path = os.path.join(tmpdir, 'analysis.txt')
@@ -282,6 +270,8 @@ if 1 in code_sections: #on/off switch for code
   os.chdir(images_dir)
   #Delete previously created output to rerun steps
   if Path(all_images_txt_path).exists(): os.remove(all_images_txt_path)
+  #Delete all_images.txt again in case of program termination
+  if keep == False and logs == False: atexit.register(clean_on_exit,all_images_txt_path)
   #Create images with ffmpeg
   with open(all_images_txt_path,"w", newline='') as all_images_txt:
     image_ffmpeg_filenames = '%07d.jpg'
@@ -310,6 +300,8 @@ if 2 in code_sections: #on/off switch for code
   os.chdir(images_dir)
   #Delete previously created output to rerun steps
   if Path(analysis_txt_path).exists(): os.remove(analysis_txt_path)
+  #Delete analysis.txt again in case of program termination
+  if keep == False and logs == False: atexit.register(clean_on_exit,analysis_txt_path)
   #Load images into NudeNet for analysis
   with open(all_images_txt_path,"r") as all_images_txt, open(analysis_txt_path,"w",newline='') as analysis_txt:
 #    images = [line.rstrip('\n') for line in all_images_txt]
@@ -330,13 +322,17 @@ if 2 in code_sections: #on/off switch for code
       z += 1
       if not verbose: print('INFO:  Step 2 of 6: Sample images analysed: ' + str(z) + ' out of ' + str(len(images)),end='\r')
   print('INFO:  Step 2 of 6: Finished analyzing ' + str(z) + ' images with NudeNet')
+  #images_dir can be deleted if analyzation has been finished
+  if keep == False: atexit.register(clean_on_exit,images_dir)
   os.chdir(startdir)
 
 if 3 in code_sections: #on/off switch for code
   print('\nINFO:  Step 3 of 6: Finding selected tags ...')
   os.chdir(tmpdir)
-  #delete previously created output to rerun steps
+  #Delete previously created output to rerun steps
   if Path(matched_images_txt_path).exists(): os.remove(matched_images_txt_path)
+  #Delete matched_images.txt again in case of program termination
+  if keep == False and logs == False: atexit.register(clean_on_exit,matched_images_txt_path)
   match_count = 0
   with open(analysis_txt_path,"r") as analysis_txt, open(matched_images_txt_path,"w") as matched_images_txt:
     for line in analysis_txt:
@@ -365,8 +361,10 @@ if 3 in code_sections: #on/off switch for code
 if 4 in code_sections: #on/off switch for code
   print('\nINFO:  Step 4 of 6: Finding cut positions ...')  
   os.chdir(tmpdir)
-  #delete previously created output to rerun steps
+  #Delete previously created output to rerun steps
   if Path(cuts_txt_path).exists(): os.remove(cuts_txt_path)
+  #Delete cuts.txt again in case of program termination
+  if keep == False and logs == False: atexit.register(clean_on_exit,cuts_txt_path)
   with open(matched_images_txt_path,"r") as matched_images_txt, open(cuts_txt_path,"w") as cuts_txt:
     for line in matched_images_txt:
       match = re.search(r'\d\d\d\d\d\d\d', line)
@@ -458,6 +456,9 @@ if 5 in code_sections: #on/off switch for code
   os.mkdir(segments_dir)
   os.chdir(segments_dir)
   if Path(segments_txt_path).exists(): os.remove(segments_txt_path)
+  #Delete segments.txt in case of program termination
+  if keep == False and logs == False: 
+    atexit.register(clean_on_exit,segments_txt_path)
   #read timestamps into a list of lists and then use it for ffmpeg
   with open(cuts_txt_path,"r") as cuts_txt, open(segments_txt_path,"w") as segments_txt:
     csv_reader = reader(cuts_txt, delimiter=' ')
@@ -487,6 +488,9 @@ if 6 in code_sections: #on/off switch for code
   if verbose: print(ffmpeg_concat_cmd)
   os.system(ffmpeg_concat_cmd)
   print('INFO:  Step 6 of 6: Finished creating final video with ffmpeg.')
+  #segments_dir can be deleted if final video has been made
+  if keep == False: atexit.register(clean_on_exit,segments_dir)
   os.chdir(startdir)
 
+popdir() # Return to initial directory
 print('--- Finished ---\n')
