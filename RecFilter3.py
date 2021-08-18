@@ -498,7 +498,6 @@ if 6 in code_sections: #on/off switch for code
   ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ' ' + '"' + ffmpeg_concat_destname + '"'
   #Don't use ffmpeg concat if it is only a single segment
   if segment_count == 1:
-    print(os.path.join(startdir,file_list[0]))
     shutil.move(os.path.join(segments_dir,Path(file_list[0])),Path(ffmpeg_concat_destname))
   else:
     if verbose: print(ffmpeg_concat_cmd)
