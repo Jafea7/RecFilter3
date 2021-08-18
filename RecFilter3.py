@@ -253,7 +253,7 @@ all_images_txt_path = os.path.join(tmpdir, 'all_images.txt')
 analysis_txt_path = os.path.join(tmpdir, 'analysis.txt')
 matched_images_txt_path = os.path.join(tmpdir, 'matched_images.txt')
 cuts_txt_path = os.path.join(tmpdir, 'cuts.txt')
-segments_txt_path = os.path.join(segments_dir, 'segments.txt')
+segments_txt_path = os.path.join(segments_dir, str(video_name.stem) + '_segments.txt')
 if preset_found: addtofilename_preset = '_' + preset.replace(' ', '_')
 else: addtofilename_preset = ''
 addtofilename = '_recfilter-i' + str(sample_interval) + 'g' + str(segment_gap) + 'd' + str(min_segment_duration) + 'e' + str(segment_extension) + addtofilename_preset
@@ -467,7 +467,7 @@ if 5 in code_sections: #on/off switch for code
       ffmpeg_cut_start = int(timestamps[i][0])
       ffmpeg_cut_end = int(timestamps[i][1])
       ffmpeg_cut_duration = ffmpeg_cut_end - ffmpeg_cut_start
-      segment_name = timestamps[i][0] + '-' + timestamps[i][1] + '.' + str(file_ext)
+      segment_name = str(video_name.stem) + '_' + timestamps[i][0].zfill(7) + '-' + timestamps[i][1].zfill(7) + '.' + str(file_ext)
       ffmpeg_cut_input_options = ffmpeg_overwrite + quietffmpeg + ' -vsync 0 -ss ' + str(timestamps[i][0]) + ' -i "'
       ffmpeg_cut_output_options = '" -t ' + str(ffmpeg_cut_duration) + ' -c copy ' + segment_name
       ffmpeg_cut_cmd = 'ffmpeg' + ' ' + ffmpeg_cut_input_options + str(video_path) + ffmpeg_cut_output_options
@@ -480,13 +480,29 @@ if 5 in code_sections: #on/off switch for code
   os.chdir(startdir)
 
 if 6 in code_sections: #on/off switch for code
-  os.chdir(segments_dir)
   print('\nINFO:  Step 6 of 6: Creating final video with ffmpeg ...')
+  os.chdir(segments_dir)
+  #Recreate segments.txt in case the user deleted, added or reordered files in the segment folder
+  if Path(segments_txt_path).exists(): os.remove(segments_txt_path)
+  if keep == False: atexit.register(clean_on_exit,segments_txt_path)
+  with open(segments_txt_path,"w",newline='') as segments_txt:
+    segments_csv = csv.writer(segments_txt,delimiter=' ',quoting=csv.QUOTE_NONE)
+    file_list = [f for f in os.listdir(segments_dir) if re.search(r'.*\.' + str(file_ext), f)]
+    segment_count = 0
+    for file in file_list:
+      segments_csv.writerow(['file',str(file)])
+      if verbose: print(file)
+      segment_count +=1
+  ffmpeg_concat_destname = os.path.splitext(video_path)[0] + addtofilename + '.' + str(file_ext)
   ffmpeg_concat_options = quietffmpeg + ffmpeg_overwrite + ' -vsync 0 -safe 0 -f concat -i "' + segments_txt_path + '" -c copy'
-  ffmpeg_concat_destname = '"' + os.path.splitext(video_path)[0] + addtofilename + '.' + str(file_ext) + '"'
-  ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ' ' + ffmpeg_concat_destname
-  if verbose: print(ffmpeg_concat_cmd)
-  os.system(ffmpeg_concat_cmd)
+  ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ' ' + '"' + ffmpeg_concat_destname + '"'
+  #Don't use ffmpeg concat if it is only a single segment
+  if segment_count == 1:
+    print(os.path.join(startdir,file_list[0]))
+    shutil.move(os.path.join(segments_dir,Path(file_list[0])),Path(ffmpeg_concat_destname))
+  else:
+    if verbose: print(ffmpeg_concat_cmd)
+    os.system(ffmpeg_concat_cmd)
   print('INFO:  Step 6 of 6: Finished creating final video with ffmpeg.')
   #segments_dir can be deleted if final video has been made
   if keep == False: atexit.register(clean_on_exit,segments_dir)
