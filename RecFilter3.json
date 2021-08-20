@@ -1,79 +1,40 @@
 {
-  "default": "EXPOSED_GENITALIA,EXPOSED_ANUS",
-  "videoext": "mkv",
-  "workingdir": "",
   "presets": [
     {
-      "name": "normal",
+      "note": "This preset will always be executed at the end to fill missing values",
+      "name": "default",
       "subset": "",
-      "interval": 1,
-      "cut": 15,
+      "interval": 5,
+      "gap": 30,
       "duration": 10,
       "extension": 3,
-      "include": "EXPOSED_GENITALIA,EXPOSED_ANUS",
+      "include": "EXPOSED_BREAST,EXPOSED_BUTTOCKS,EXPOSED_ANUS,EXPOSED_GENITALIA,EXPOSED_BELLY",
       "exclude": "",
       "begin": 0,
-      "finish": 0
+      "finish": 0,
+      "filesuffix": "_recfilter",
+      "videoext": "mp4"
     },
     {
-      "name": "noanus",
-      "subset": "",
-      "interval": 1,
-      "cut": 15,
-      "duration": 10,
-      "extension": 3,
-      "include": "EXPOSED_GENITALIA",
-      "exclude": "",
-      "begin": 0,
-      "finish": 0
+      "note": "This preset will be executed through the inherit in presetwithvalues",
+      "name": "iwantmkv",
+      "videoext": "mkv"
     },
     {
-      "name": "boobs",
-      "subset": "",
-      "interval": 1,
-      "cut": 15,
-      "duration": 10,
-      "extension": 3,
-      "include": "EXPOSED_GENITALIA,EXPOSED_ANUS,EXPOSED_BREAST_F",
-      "exclude": "",
-      "begin": 0,
-      "finish": 0
+      "note": "This example preset is the one we call first directly via command line. Usually named after the model or site. Inherit causes it to call another preset.",
+      "name": "presetwithtags",
+      "inherit": "presetwithvalues",
+      "include": "EXPOSED_GENITALIA_F,EXPOSED_ANUS"
     },
     {
-      "name": "flashes",
-      "subset": "",
-      "interval": 1,
-      "cut": 20,
-      "duration": 1,
-      "extension": 4,
-      "include": "EXPOSED_GENITALIA,EXPOSED_ANUS",
-      "exclude": "",
-      "begin": 0,
-      "finish": 0
-    },
-    {
-      "name": "minimize",
-      "subset": "",
-      "interval": 1,
-      "cut": 1,
-      "duration": 1,
-      "extension": 2,
-      "include": "EXPOSED_GENITALIA,EXPOSED_ANUS",
-      "exclude": "",
-      "begin": 0,
-      "finish": 0
-    },
-    {
-      "name": "maximize",
-      "subset": "",
-      "interval": 1,
-      "cut": 60,
-      "duration": 1,
-      "extension": 5,
-      "include": "EXPOSED_GENITALIA,EXPOSED_ANUS,EXPOSED_BREAST_F,EXPOSED_BUTTOCKS,EXPOSED_ARMPITS",
-      "exclude": "",
-      "begin": 0,
-      "finish": 0
+      "note": "This example preset has a set of values we like to use more often and it attaches another word to the filename.",
+      "name": "presetwithvalues",
+      "inherit": "iwantmkv",
+      "interval": 2,
+      "gap": 30,
+      "duration": 0,
+      "extension": 30,
+      "filesuffix": "_i1g30d0e30"
     }
   ]
 }
