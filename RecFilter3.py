@@ -39,12 +39,12 @@ def clean_on_exit(path):
 print('\n--- RecFilter3 ---')
 parser = argparse.ArgumentParser(prog='RecFilter', description='RecFilter: Remove SFW sections of videos')
 parser.add_argument('file', type=str, help='Video file to process')
-parser.add_argument('-i', '--interval', type=int, default=5, help='Interval between image samples (default: 5)')
-parser.add_argument('-g', '--gap', type=int, default=30, help='Split segments more than x seconds apart (default: 30)')
-parser.add_argument('-d', '--duration', type=int, default=10, help='Discard segments shorter than x seconds (default: 10)')
-parser.add_argument('-e', '--extension', type=int, default=3, help='Extend start and end of segments by x seconds (default: 3)')
-parser.add_argument('-b', '--beginning', type=int, default=0, help='Skip x seconds of beginning (default: 0)')
-parser.add_argument('-f', '--finish', type=int, default=0, help='Skip x seconds of finish (default: 0)')
+parser.add_argument('-i', '--interval', type=int, help='Interval between image samples (default: 5)')
+parser.add_argument('-g', '--gap', type=int, help='Split segments more than x seconds apart (default: 30)')
+parser.add_argument('-d', '--duration', type=int, help='Discard segments shorter than x seconds (default: 10)')
+parser.add_argument('-e', '--extension', type=int, help='Extend start and end of segments by x seconds (default: 3)')
+parser.add_argument('-b', '--beginning', type=int, help='Skip x seconds of beginning (default: 0)')
+parser.add_argument('-f', '--finish', type=int, help='Skip x seconds of finish (default: 0)')
 parser.add_argument('-p', '--preset', type=str, help='Name of the config preset to use')
 parser.add_argument('-s', '--subset', type=str, help='Subset of preset, eg. site that the model appears on')
 parser.add_argument('-q', '--quick', default=False, action='store_true', help='Lower needed certainty for matches from 0.6 to 0.5 (default: False)')
@@ -60,42 +60,78 @@ parser.add_argument('-5', '--split', action='append_const', dest='switches', con
 parser.add_argument('-6', '--save', action='append_const', dest='switches', const=6, help='Only connect segements and save final result. Requires segments.txt')
 
 args = parser.parse_args()
-if ((args.subset is not None) and
-    (args.preset is None)):
-  parser.error('The --subset argument requires a --preset argument')
-video_name = Path(args.file)
-sample_interval = args.interval
-min_segment_duration = args.duration
-segment_gap = args.gap
-segment_extension = args.extension
-skip_begin = args.beginning
-skip_finish = args.finish
-if args.preset is not None:
+
+#Only really use subset when preset given
+if args.preset:
   preset = args.preset.lower()
+  if args.subset: subset = args.subset.lower()
+  else: subset = False
 else:
-  preset = None
-if args.subset is not None:
-  subset = args.subset.lower()
-else:
-  subset = None
+  if args.subset: preset = args.subset.lower()
+  else: subset = False
+
+video_name = Path(args.file)
 fastmode = args.quick
 keep = args.keep
 logs = args.logs
 verbose = args.verbose
 
 # Create variables in case no --overwrite given
-overwrite = False
-if args.overwrite == True:
-  overwrite = True #allow overwriting temp folder
+if args.overwrite: overwrite = True #allow overwriting temp folder
+else: overwrite = False
 
+#Keep track of used arguments and initialize variables for unused ones
+commandline = {}
+if args.interval:
+  sample_interval = args.interval
+  commandline['interval'] = args.interval
+else: sample_interval = 5
+if args.gap:
+  segment_gap = args.gap
+  commandline['gap'] = args.gap
+else: segment_gap = 30
+if args.duration:
+  min_segment_duration = args.duration
+  commandline['duration'] = args.duration
+else: min_segment_duration = 10
+if args.extension:
+  segment_extension = args.extension
+  commandline['extension'] = args.extension
+else: segment_extension = 3
+if args.beginning:
+  skip_begin = args.beginning
+  commandline['begin'] = args.beginning
+else: skip_begin = 0
+if args.finish:
+  skip_finish = args.finish
+  commandline['finish'] = args.finish
+else: skip_finish = 0
+
+#Load config
 config_path = Path(os.path.splitext(sys.argv[0])[0] + '.json')
-try:
-  with open(config_path) as f:
-    data = json.load(f)
-    config = True
-except:
-  print('\nINFO:  No config file \'%s\' found.' % config_path)
-  config = False
+if config_path.exists() == False:
+  print('\nWARN:  No config file \'%s\' found.' % config_path)
+else:
+  try:
+    with open(config_path) as f:
+      data = json.load(f)
+      config = True
+  except Exception as config_error: 
+    print('\nERROR:  Config file ' + str(config_path) + ' is invalid. The following error occured: ')
+    print(config_error)
+    config = False
+  if config_path.exists() == False or config == False:
+    print("Do you you want to continue with default arguments instead?")
+    print('[y/n] ')
+    stop = False
+    while stop == False:
+      answer = str( input().lower().strip() )
+      if answer == 'y':
+        stop = True
+      elif answer == 'n':
+        stop = True
+        sys.exit()
+      else: print("Please enter y or n.")
 
 # Default wanted is gender neutral, if a particular gender is required it can be entered into the config file per preset
 # Other terms can also be set in the config, see https://github.com/Jafea7/RecFilter3 for valid terms
@@ -103,43 +139,97 @@ wanted = ['EXPOSED_BREAST', 'EXPOSED_BUTTOCKS', 'EXPOSED_ANUS', 'EXPOSED_GENITAL
 unwanted = []
 file_ext = 'mp4' # In case there's no videoext entry in the config
 
-preset_found = False
+print('\nINFO:  Input file: ')
+print(str(video_name))
+
 if config:
-  if 'default' in data:
-    if str(data['default']) != "":
-      wanted = data['default'].split(',')
-  if 'videoext' in data:
-    if str(data['videoext']) != "":
-      file_ext = data['videoext']
-    else:
-      file_ext = 'mp4'
-      
+#Check whether a line in the config even exists
   def config_line_exists(key):
   #the following try block on the datatype is necessary to check for existence, 
   #because in the case values are set to 0 it will give back False instead of True
     try:
-      if type(preset_name[key]):
+      if type(data['presets'][i][key]):
         return True
     except:
-      print('No "' + key + '" given in config for preset "' + preset_name['name'] + '". Falling back to default.')
       return False
+  
+#Check whether the value hasn't been set already by a higher priority preset
+  def write_config_value(key):
+    if config_line_exists(key):
+      #Don't overwrite values given via command line
+      if (key in commandline) == False:
+        #Inherit has to be allowed. Otherwise it prevents a second inherit.
+        if ((key in inconfig) == False) or (key == 'inherit') or (key == 'filesuffix'):
+          #split up tags to not use up too much space
+          if key == ('include' or 'exclude'):
+            split_tags = format(data['presets'][i][key]).split(',')
+            for tag in split_tags:
+              print('Preset: ' + format(data['presets'][i]['name']).ljust(max_presetname_len + 2)[:20] + (key + ': ').rjust(12) + tag)
+          else:
+            print('Preset: ' + format(data['presets'][i]['name']).ljust(max_presetname_len + 2)[:20] + (key + ': ').rjust(12) + str(data['presets'][i][key]))
+          inconfig.append(key)
+          return True
+        else: return False
+      else: return False
+    else: return False
 
-  if (preset is not None):
-    for preset_name in data['presets']:
-      if (preset_name['name'].lower() == preset):
-        if (((subset is not None) and (preset_name['subset'].lower() == subset)) or
-          ((subset is None) and (preset_name['subset'].lower() == ''))):
-          if config_line_exists('interval'): sample_interval = preset_name['interval']
-          if config_line_exists('gap'): segment_gap = preset_name['gap']
-          if config_line_exists('duration'): min_segment_duration = preset_name['duration']
-          if config_line_exists('extension'): segment_extension = preset_name['extension']
-          if config_line_exists('include'): wanted = preset_name['include'].split(',')
-          if config_line_exists('exclude'): unwanted = preset_name['exclude'].split(',')
-          if config_line_exists('begin'): skip_begin = preset_name['begin']
-          if config_line_exists('finish'): skip_finish = preset_name['finish']
-          preset_found = True
-          break
-    if not preset_found:
+#Used variables
+  inconfig = []
+  inherit = ''
+  presets_found = []
+  max_presetname_len = 0
+  filesuffix_list = []
+
+if (preset is not None):
+
+#Find longest preset name for formatting the output
+    for i in range(0,len(data['presets'])):
+      if len(data['presets'][i]['name']) > max_presetname_len:
+          max_presetname_len = len(data['presets'][i]['name'])
+
+    print('\nINFO:  Using the following settings:')
+
+#Ouput command line settings
+    for i in range(0,len(commandline)):
+      print('Preset: ' + 'commandline'.ljust(max_presetname_len + 2) + (str(list(commandline.items())[i][0]) + ': ').rjust(12) + (str(list(commandline.items())[i][1])))
+
+#Loop through all the config presets
+    i = 0
+    while i < len(data['presets']):
+      justinherited = False #reset re-loop trigger
+      #skip presets that have already been applied
+      if (data['presets'][i]['name'].lower() in presets_found) == False:
+        if (data['presets'][i]['name'].lower() == preset) or (data['presets'][i]['name'].lower() == inherit):
+          #reset inherit to an empty string once we were able to use it to get into the right preset         
+          if data['presets'][i]['name'].lower() == inherit: inherit = ''
+          #if subset is used, the subset has to match, otherwise only inherit allows entry
+          if (subset == False) or (subset and data['presets'][i]['subset'].lower() == subset):
+            if write_config_value('inherit'):
+              inherit = (data['presets'][i]['inherit'])
+              justinherited = True #trigger to rerun preset loop
+            if write_config_value('interval'): sample_interval = data['presets'][i]['interval']
+            if write_config_value('gap'): segment_gap = data['presets'][i]['gap']
+            if write_config_value('duration'): min_segment_duration = data['presets'][i]['duration']
+            if write_config_value('extension'): segment_extension = data['presets'][i]['extension']
+            if write_config_value('include'): wanted = data['presets'][i]['include'].split(',')
+            if write_config_value('exclude'): unwanted = data['presets'][i]['exclude'].split(',')
+            if write_config_value('begin'): skip_begin = data['presets'][i]['begin']
+            if write_config_value('finish'): skip_finish = data['presets'][i]['finish']
+            if write_config_value('filesuffix'): filesuffix_list.append(data['presets'][i]['filesuffix'])
+            if write_config_value('videoext'): file_ext = data['presets'][i]['videoext']
+            #note down used presets, so we can skip them
+            presets_found.append(data['presets'][i]['name'].lower())
+            #stop the loop once default was applied as a last possible inheritance
+            if 'default' in presets_found: break
+      #if it was the last preset and no inheritance has been set, inherit the default preset
+      if (i >= len(data['presets']) - 1) and inherit == '':
+        inherit = 'default'
+        justinherited = True
+      #If a preset inherits look through all presets again
+      if justinherited: i = 0
+      else: i+=1
+
+    if preset.lower() not in presets_found:
       print('\nINFO:  Preset \'' + preset + '\' not found, using defaults.')
       print("\nThere might be a typo in your --preset argument.\nAre you sure you want to continue with default arguments?")
       print('[y/n] ')
@@ -153,18 +243,10 @@ if config:
           sys.exit()
         else: print("Please enter y or n.")
 
-print('\nINFO:  Input file: ')
-print(str(video_name))
-print('\nINFO:  Running with arguments: ')
-print('-i ' + str(sample_interval) + ' -g ' + str(segment_gap) + ' -d ' + str(min_segment_duration)+ ' -e ' + str(segment_extension) + ' -b ' + str(skip_begin) + ' -f ' + str(skip_finish) )
-print('\nINFO:  Tags that will be matched: ')
-print(str(wanted))
-print('\nINFO:  Tags that will be excluded: ')
-print(str(unwanted))
-if fastmode: print('\nINFO:  NudeNet was set to Fast Mode')
-
 if wanted[0] == 'NONE':
   exit()
+
+if fastmode: print('\nINFO:  NudeNet was set to Fast Mode')
 
 imagelist = []
 lines = []
@@ -206,16 +288,16 @@ try:
     for i in range(args.switches[0], args.switches[-1] + 1):
       code_sections.append(i)
     print('\nINFO:  Execution restricted by user:')
-    print('        ' + 'Only the following program steps will be processed:')
-    if 1 in code_sections: print('        ' + '- Step 1 of 6: Creation of image samples')
-    if 2 in code_sections: print('        ' + '- Step 2 of 6: Analysis through NudeNet AI')
-    if 3 in code_sections: print('        ' + '- Step 3 of 6: Find tags')
-    if 4 in code_sections: print('        ' + '- Step 4 of 6: Find cut markers')
-    if 5 in code_sections: print('        ' + '- Step 5 of 6: Extract segments at cut markers')
-    if 6 in code_sections: print('        ' + '- Step 6 of 6: Connect segments and save final result')
+    print('Only the following program steps will be processed:')
+    if 1 in code_sections: print('- Step 1 of 6: Creation of image samples')
+    if 2 in code_sections: print('- Step 2 of 6: Analysis through NudeNet AI')
+    if 3 in code_sections: print('- Step 3 of 6: Find tags')
+    if 4 in code_sections: print('- Step 4 of 6: Find cut markers')
+    if 5 in code_sections: print('- Step 5 of 6: Extract segments at cut markers')
+    if 6 in code_sections: print('- Step 6 of 6: Connect segments and save final result')
     logs = True
-    print('INFO:  Option --logs was set to true automatically:')
-    print('        ' + 'Text files will be kept as input for further processing.')
+    print('\nINFO:  Option --logs was set to true automatically:')
+    print('Text files will be kept as input for further processing.')
 #if the user didn't specify any sections run all sections
 except: code_sections = [1,2,3,4,5,6]
 
@@ -254,9 +336,8 @@ analysis_txt_path = os.path.join(tmpdir, 'analysis.txt')
 matched_images_txt_path = os.path.join(tmpdir, 'matched_images.txt')
 cuts_txt_path = os.path.join(tmpdir, 'cuts.txt')
 segments_txt_path = os.path.join(segments_dir, str(video_name.stem) + '_segments.txt')
-if preset_found: addtofilename_preset = '_' + preset.replace(' ', '_')
-else: addtofilename_preset = ''
-addtofilename = '_recfilter-i' + str(sample_interval) + 'g' + str(segment_gap) + 'd' + str(min_segment_duration) + 'e' + str(segment_extension) + addtofilename_preset
+if filesuffix_list: addtofilename = ''.join(reversed(filesuffix_list)).replace(' ', '_')
+else: addtofilename = ''
 
 if 1 in code_sections: #on/off switch for code
   if fastmode: max_side_length = 800
