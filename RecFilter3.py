@@ -9,6 +9,7 @@ import subprocess
 import sys
 import csv
 import atexit
+import datetime
 from pathlib import Path
 from nudenet import NudeDetector
 from csv import reader
@@ -166,9 +167,9 @@ if config and preset:
           if key == ('include' or 'exclude'):
             split_tags = format(data['presets'][i][key]).split(',')
             for tag in split_tags:
-              print('Preset: ' + format(data['presets'][i]['name']).ljust(max_presetname_len + 2)[:20] + (key + ': ').rjust(12) + tag)
+              print('Preset: ' + format(data['presets'][i]['name']).ljust(max_presetname_len + 2)[:30] + (key + ': ').rjust(12) + tag)
           else:
-            print('Preset: ' + format(data['presets'][i]['name']).ljust(max_presetname_len + 2)[:20] + (key + ': ').rjust(12) + str(data['presets'][i][key]))
+            print('Preset: ' + format(data['presets'][i]['name']).ljust(max_presetname_len + 2)[:30] + (key + ': ').rjust(12) + str(data['presets'][i][key]))
           inconfig.append(key)
           return True
         else: return False
@@ -500,7 +501,7 @@ if 4 in code_sections: #on/off switch for code
     
 # Write results to file    
     for i in range(0, len(beginnings)):
-      cuts_txt.write(str(beginnings[i]) + ' ' + str(endings[i]) + '\n')
+      cuts_txt.write(str(beginnings[i]) + ' ' + str(endings[i]) + ' ' + str(datetime.timedelta(0, beginnings[i])) + ' ' + str(datetime.timedelta(0, endings[i])) + '\n')
 
   os.chdir(startdir)
 
