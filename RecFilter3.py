@@ -67,8 +67,10 @@ if args.preset:
   if args.subset: subset = args.subset.lower()
   else: subset = False
 else:
+  preset = 'default'
   if args.subset: preset = args.subset.lower()
   else: subset = False
+    
 
 video_name = Path(args.file)
 fastmode = args.quick
@@ -142,7 +144,7 @@ file_ext = 'mp4' # In case there's no videoext entry in the config
 print('\nINFO:  Input file: ')
 print(str(video_name))
 
-if config:
+if config and preset:
 #Check whether a line in the config even exists
   def config_line_exists(key):
   #the following try block on the datatype is necessary to check for existence, 
@@ -180,68 +182,66 @@ if config:
   max_presetname_len = 0
   filesuffix_list = []
 
-if (preset is not None):
-
 #Find longest preset name for formatting the output
-    for i in range(0,len(data['presets'])):
-      if len(data['presets'][i]['name']) > max_presetname_len:
-          max_presetname_len = len(data['presets'][i]['name'])
+  for i in range(0,len(data['presets'])):
+    if len(data['presets'][i]['name']) > max_presetname_len:
+        max_presetname_len = len(data['presets'][i]['name'])
 
-    print('\nINFO:  Using the following settings:')
+  print('\nINFO:  Using the following settings:')
 
 #Ouput command line settings
-    for i in range(0,len(commandline)):
-      print('Preset: ' + 'commandline'.ljust(max_presetname_len + 2) + (str(list(commandline.items())[i][0]) + ': ').rjust(12) + (str(list(commandline.items())[i][1])))
+  for i in range(0,len(commandline)):
+    print('Preset: ' + 'commandline'.ljust(max_presetname_len + 2) + (str(list(commandline.items())[i][0]) + ': ').rjust(12) + (str(list(commandline.items())[i][1])))
 
 #Loop through all the config presets
-    i = 0
-    while i < len(data['presets']):
-      justinherited = False #reset re-loop trigger
-      #skip presets that have already been applied
-      if (data['presets'][i]['name'].lower() in presets_found) == False:
-        if (data['presets'][i]['name'].lower() == preset) or (data['presets'][i]['name'].lower() == inherit):
-          #reset inherit to an empty string once we were able to use it to get into the right preset         
-          if data['presets'][i]['name'].lower() == inherit: inherit = ''
-          #if subset is used, the subset has to match, otherwise only inherit allows entry
-          if (subset == False) or (subset and data['presets'][i]['subset'].lower() == subset):
-            if write_config_value('inherit'):
-              inherit = (data['presets'][i]['inherit'])
-              justinherited = True #trigger to rerun preset loop
-            if write_config_value('interval'): sample_interval = data['presets'][i]['interval']
-            if write_config_value('gap'): segment_gap = data['presets'][i]['gap']
-            if write_config_value('duration'): min_segment_duration = data['presets'][i]['duration']
-            if write_config_value('extension'): segment_extension = data['presets'][i]['extension']
-            if write_config_value('include'): wanted = data['presets'][i]['include'].split(',')
-            if write_config_value('exclude'): unwanted = data['presets'][i]['exclude'].split(',')
-            if write_config_value('begin'): skip_begin = data['presets'][i]['begin']
-            if write_config_value('finish'): skip_finish = data['presets'][i]['finish']
-            if write_config_value('filesuffix'): filesuffix_list.append(data['presets'][i]['filesuffix'])
-            if write_config_value('videoext'): file_ext = data['presets'][i]['videoext']
-            #note down used presets, so we can skip them
-            presets_found.append(data['presets'][i]['name'].lower())
-            #stop the loop once default was applied as a last possible inheritance
-            if 'default' in presets_found: break
-      #if it was the last preset and no inheritance has been set, inherit the default preset
-      if (i >= len(data['presets']) - 1) and inherit == '':
-        inherit = 'default'
-        justinherited = True
-      #If a preset inherits look through all presets again
-      if justinherited: i = 0
-      else: i+=1
+  i = 0
+  while i < len(data['presets']):
+    justinherited = False #reset re-loop trigger
+    #skip presets that have already been applied
+    if (data['presets'][i]['name'].lower() in presets_found) == False:
+      if (data['presets'][i]['name'].lower() == preset) or (data['presets'][i]['name'].lower() == inherit):
+        #reset inherit to an empty string once we were able to use it to get into the right preset         
+        if data['presets'][i]['name'].lower() == inherit: inherit = ''
+        #if subset is used, the subset has to match, otherwise only inherit allows entry
+        if (subset == False) or (subset and data['presets'][i]['subset'].lower() == subset):
+          if write_config_value('inherit'):
+            inherit = (data['presets'][i]['inherit'])
+            justinherited = True #trigger to rerun preset loop
+          if write_config_value('interval'): sample_interval = data['presets'][i]['interval']
+          if write_config_value('gap'): segment_gap = data['presets'][i]['gap']
+          if write_config_value('duration'): min_segment_duration = data['presets'][i]['duration']
+          if write_config_value('extension'): segment_extension = data['presets'][i]['extension']
+          if write_config_value('include'): wanted = data['presets'][i]['include'].split(',')
+          if write_config_value('exclude'): unwanted = data['presets'][i]['exclude'].split(',')
+          if write_config_value('begin'): skip_begin = data['presets'][i]['begin']
+          if write_config_value('finish'): skip_finish = data['presets'][i]['finish']
+          if write_config_value('filesuffix'): filesuffix_list.append(data['presets'][i]['filesuffix'])
+          if write_config_value('videoext'): file_ext = data['presets'][i]['videoext']
+          #note down used presets, so we can skip them
+          presets_found.append(data['presets'][i]['name'].lower())
+          #stop the loop once default was applied as a last possible inheritance
+          if 'default' in presets_found: break
+    #if it was the last preset and no inheritance has been set, inherit the default preset
+    if (i >= len(data['presets']) - 1) and inherit == '':
+      inherit = 'default'
+      justinherited = True
+    #If a preset inherits look through all presets again
+    if justinherited: i = 0
+    else: i+=1
 
-    if preset.lower() not in presets_found:
-      print('\nINFO:  Preset \'' + preset + '\' not found, using defaults.')
-      print("\nThere might be a typo in your --preset argument.\nAre you sure you want to continue with default arguments?")
-      print('[y/n] ')
-      stop = False
-      while stop == False:
-        answer = str( input().lower().strip() )
-        if answer == 'y':
-          stop = True
-        elif answer == 'n':
-          stop = True
-          sys.exit()
-        else: print("Please enter y or n.")
+  if preset.lower() not in presets_found:
+    print('\nINFO:  Preset \'' + preset + '\' not found, using defaults.')
+    print("\nThere might be a typo in your --preset argument.\nAre you sure you want to continue with default arguments?")
+    print('[y/n] ')
+    stop = False
+    while stop == False:
+      answer = str( input().lower().strip() )
+      if answer == 'y':
+        stop = True
+      elif answer == 'n':
+        stop = True
+        sys.exit()
+      else: print("Please enter y or n.")
 
 if wanted[0] == 'NONE':
   exit()
