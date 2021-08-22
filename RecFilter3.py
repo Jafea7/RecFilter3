@@ -368,8 +368,8 @@ all_images_txt_path = os.path.join(tmpdir, 'all_images.txt')
 analysis_txt_path = os.path.join(tmpdir, 'analysis.txt')
 matched_images_txt_path = os.path.join(tmpdir, 'matched_images.txt')
 cuts_txt_path = os.path.join(tmpdir, 'cuts.txt')
-segments_txt_path = os.path.join(segments_dir, str(video_name.stem) + '_segments.txt')
-excluded_segments_txt_path = os.path.join(excluded_segments_dir, str(video_name.stem) + '_excluded_segments.txt')
+segments_txt_path = os.path.join(tmpdir, 'segments.txt')
+excluded_segments_txt_path = os.path.join(tmpdir, 'excluded_segments.txt')
 if filesuffix_list: addtofilename = ''.join(reversed(filesuffix_list)).replace(' ', '_')
 else: addtofilename = ''
 
@@ -563,7 +563,7 @@ if 4 in code_sections: #on/off switch for code
   elif beginnings[0] == 0 and endings[0] >= duration - 1:
     print('INFO:  Step 4 of 6: Found segment is identical to the source video. Nothing to cut... :)')
     #Only copy if video container of source and destination are the same, otherwise convert
-    if os.path.splitext(filename)[1] == '.' + str(file_ext):
+    if os.path.splitext(video_name)[1] == '.' + str(file_ext):
       with open(Path(video_path.stem + addtofilename + '_identical.txt'),"w") as info_txt:
         info_txt.write(infotext)
       sys.exit()
@@ -613,7 +613,7 @@ if 5 in code_sections: #on/off switch for code
           ffmpeg_cut_output_options = '" -t ' + str(ffmpeg_cut_duration) + ' -c copy ' + segment_name
           ffmpeg_cut_cmd = 'ffmpeg' + ' ' + ffmpeg_cut_input_options + str(video_path) + ffmpeg_cut_output_options
           #Write output filenames into file for ffmpeg -f concat
-          segments_txt.write('file ' + segment_name + '\n')
+          segments_txt.write("file 'file:" + str(dir.joinpath(segment_name)).replace('\\', '/') + "'\n")
           if verbose: print(ffmpeg_cut_cmd)
           os.system(ffmpeg_cut_cmd)
           if not verbose: print('INFO:  Step 5 of 6: Extracting' + negative_str + ' segments: ' + str(i+1) + ' out of ' + str(len(ts)),end='\r')
@@ -623,19 +623,29 @@ if 5 in code_sections: #on/off switch for code
     #Makes a new timestamp table with all non-selected parts
     def inverse_timestamps(ts):
       inverse_timestamps = []
+      found_inverse = 0
       for i in range(0,len(ts)):
-        if (i == 0) and (int(ts[0][0]) != 0): inverse_timestamps.append([0,int(ts[0][0])])
-        elif (i == len(ts)) and (int(ts[-1][1]) != duration):
+        if (i == 0) and (int(ts[0][0]) != 0):
+          inverse_timestamps.append([0,int(ts[0][0])])
+          found_its +=1
+        if (i == len(ts) - 1) and (int(ts[-1][1]) != duration):
           inverse_timestamps.append([int(ts[-1][1]),duration])
-        elif i < len(ts)-1:
+          found_its +=1
+        if  i < len(ts) - 1:
           inverse_timestamps.append([int(ts[i][1]),int(ts[i+1][0])])
-      return inverse_timestamps
+          found_its +=1
+      if found_inverse < 1: return False
+      else: return inverse_timestamps
 
     extract_segments(segments_dir,segments_txt_path,timestamps)
-    if create_negative: extract_segments(excluded_segments_dir,excluded_segments_txt_path,inverse_timestamps(timestamps))
+    if create_negative and inverse_timestamps(timestamps): extract_segments(excluded_segments_dir,excluded_segments_txt_path,inverse_timestamps(timestamps))
+
+    print(str(timestamps))
+    print(str(inverse_timestamps(timestamps)))
 
   os.chdir(startdir)
 
+  
 
 if 6 in code_sections: #on/off switch for code
   print('\nINFO:  Step 6 of 6: Creating final video with ffmpeg ...')
@@ -645,38 +655,39 @@ if 6 in code_sections: #on/off switch for code
   if create_negative: recreate(excluded_segments_txt_path)
 
 #Recreate txt in case the user deleted, added or reordered files in the segment folder
-  def count_segments(dir,txt):
+  def scan_segments(dir,txt):
     os.chdir(dir)
     with open(txt,"w",newline='') as segments_txt:
-      segments_csv = csv.writer(segments_txt,delimiter=' ',quoting=csv.QUOTE_NONE)
       file_list = [f for f in os.listdir(dir) if re.search(r'.*\.' + str(file_ext), f)]
       i = 0
       for file in file_list:
-        segments_csv.writerow(['file',str(file)])
+        segments_txt.write("file 'file:" + str(dir.joinpath(file)).replace('\\', '/') + "'\n")
         if verbose: print(file)
         i +=1
-    return i
+    return file_list, i
 
-  segments_count = count_segments(segments_dir,segments_txt_path)
-  if create_negative: excluded_segments_count = count_segments(excluded_segments_dir,excluded_segments_txt_path)
+  segment_files, segments_count = scan_segments(segments_dir,segments_txt_path)
+  if create_negative: excluded_segment_files, excluded_segments_count = scan_segments(excluded_segments_dir,excluded_segments_txt_path)
 
 #Use ffmpeg to concatenate
-  def concat_segments(dir,txt,count):
+  def concat_segments(dir,txt,file_list,count):
     os.chdir(dir)
     if dir == excluded_segments_dir: negative_str = '_negative'
     else: negative_str = ''
     ffmpeg_concat_destname = os.path.splitext(video_path)[0] + addtofilename + negative_str + '.' + str(file_ext)
-    ffmpeg_concat_options = quietffmpeg + ffmpeg_overwrite + ' -vsync 0 -safe 0 -f concat -i "' + txt + '" -c copy'
+    ffmpeg_concat_options = quietffmpeg + ffmpeg_overwrite + ' -vsync 0 -safe 0 -f concat -i "' + txt.replace('\\', '/') + '" -c copy'
     ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ' ' + '"' + ffmpeg_concat_destname + '"'
     #Don't use ffmpeg concat if it is only a single segment with the same video cotainer
-    if (count == 1) and (os.path.splitext(filename)[1] == '.' + str(file_ext)):
+    if (count == 1) and (os.path.splitext(video_name)[1] == '.' + str(file_ext)):
       shutil.move(os.path.join(dir,Path(file_list[0])),Path(ffmpeg_concat_destname))
     else:
       if verbose: print(ffmpeg_concat_cmd)
       os.system(ffmpeg_concat_cmd)
 
-  concat_segments(segments_dir,segments_txt_path,segments_count)
-  if create_negative: concat_segments(excluded_segments_dir,excluded_segments_txt_path,excluded_segments_count)
+  concat_segments(segments_dir,segments_txt_path,segment_files,segments_count)
+  if create_negative:
+    if excluded_segments_count > 0:
+      concat_segments(excluded_segments_dir,excluded_segments_txt_path,excluded_segment_files,excluded_segments_count)
   print('INFO:  Step 6 of 6: Finished creating final video with ffmpeg.')
 
 #segments_dir can be deleted if final video has been made
