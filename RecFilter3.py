@@ -627,21 +627,18 @@ if 5 in code_sections: #on/off switch for code
       for i in range(0,len(ts)):
         if (i == 0) and (int(ts[0][0]) != 0):
           inverse_timestamps.append([0,int(ts[0][0])])
-          found_its +=1
+          found_inverse +=1
         if (i == len(ts) - 1) and (int(ts[-1][1]) != duration):
           inverse_timestamps.append([int(ts[-1][1]),duration])
-          found_its +=1
+          found_inverse +=1
         if  i < len(ts) - 1:
           inverse_timestamps.append([int(ts[i][1]),int(ts[i+1][0])])
-          found_its +=1
+          found_inverse +=1
       if found_inverse < 1: return False
       else: return inverse_timestamps
 
     extract_segments(segments_dir,segments_txt_path,timestamps)
     if create_negative and inverse_timestamps(timestamps): extract_segments(excluded_segments_dir,excluded_segments_txt_path,inverse_timestamps(timestamps))
-
-    print(str(timestamps))
-    print(str(inverse_timestamps(timestamps)))
 
   os.chdir(startdir)
 
