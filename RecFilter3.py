@@ -10,15 +10,19 @@ import sys
 import csv
 import atexit
 import datetime
+import time
+import yaml
 from pathlib import Path
 from nudenet import NudeDetector
-from csv import reader
-
-detector = NudeDetector()
 
 MIN_PYTHON = (3, 7, 6)
 if sys.version_info < MIN_PYTHON:
   sys.exit("\nPython %s.%s.%s or later is required.\n" % MIN_PYTHON)
+
+detector = NudeDetector()
+
+def current_time():
+  return time.strftime("%H:%M:%S", time.localtime())
 
 pushstack = []
 def pushdir(dirname):
@@ -82,6 +86,7 @@ keep = args.keep
 logs = args.logs
 verbose = args.verbose
 create_negative = args.negative
+keep_filedate = True
 
 # Create variables in case no --overwrite given
 if args.overwrite: overwrite = True #allow overwriting temp folder
@@ -94,7 +99,7 @@ wanted = ['EXPOSED_BREAST', 'EXPOSED_BUTTOCKS', 'EXPOSED_ANUS', 'EXPOSED_GENITAL
 unwanted = []
 file_ext = 'mp4' # In case there's no videoext entry in the config
 
-print('\nINFO:  Input file: ')
+print('\n' + current_time() + ' INFO:  Input file: ')
 print(str(video_name))
 
 
@@ -138,7 +143,7 @@ if config_path.exists() == False:
   print('\nWARN:  No config file \'%s\' found.' % config_path)
 else:
   try:
-    with open(config_path) as f:
+    with open(config_path,"r") as f:
       data = json.load(f)
       config = True
   except Exception as config_error: 
@@ -182,9 +187,9 @@ if config and preset:
             if key == ('include' or 'exclude'):
               split_tags = format(data['presets'][i][key]).split(',')
               for tag in split_tags:
-                print('Preset: ' + format(data['presets'][i]['name'] + '  ').ljust(max_presetname_len,'-')[:30] + ('>  ' + key + ': ').rjust(15,'-') + tag)
+                print('Preset: ' + format(data['presets'][i]['name'] + '  ').ljust(max_presetname_len,'-')[:30] + ('>  ' + key + ': ').rjust(max_key_len+5,'-') + tag)
             else:
-              print('Preset: ' + format(data['presets'][i]['name'] + '  ').ljust(max_presetname_len,'-')[:30] + ('>  ' + key + ': ').rjust(15,'-') + str(data['presets'][i][key]))
+              print('Preset: ' + format(data['presets'][i]['name'] + '  ').ljust(max_presetname_len,'-')[:30] + ('>  ' + key + ': ').rjust(max_key_len+5,'-') + str(data['presets'][i][key]))
             inconfig.append(key)
             return True
           else: return False
@@ -198,18 +203,24 @@ if config and preset:
   presets_found = []
   max_presetname_len = 0
   filesuffix_list = []
-  list_of_valid_config_keys = ['name','note','inherit','interval','gap','duration','extension','subset','include','exclude','begin','finish','filesuffix','videoext']
+  list_of_valid_config_keys = ['name','note','inherit','interval','gap','duration','extension','subset','include','exclude','begin','finish','filesuffix','videoext','keep_filedate']
+  max_key_len = 0
+
+#Find longest key name for formatting the output
+  for i in range(0,len(list_of_valid_config_keys)):
+    if len(list_of_valid_config_keys[i]) > max_key_len:
+        max_key_len = len(list_of_valid_config_keys[i])
 
 #Find longest preset name for formatting the output
   for i in range(0,len(data['presets'])):
     if len(data['presets'][i]['name']) > max_presetname_len:
         max_presetname_len = len(data['presets'][i]['name'])
 
-  print('\nINFO:  Using the following settings:')
+  print('\n' + current_time() + ' INFO:  Using the following settings:')
 
 #Ouput command line settings
   for i in range(0,len(commandline)):
-    print('Preset: ' + 'commandline  '.ljust(max_presetname_len,'-') + ('>  ' + str(list(commandline.items())[i][0]) + ': ').rjust(15,'-') + (str(list(commandline.items())[i][1])))
+    print('Preset: ' + 'commandline  '.ljust(max_presetname_len,'-') + ('>  ' + str(list(commandline.items())[i][0]) + ': ').rjust(max_key_len+5,'-') + (str(list(commandline.items())[i][1])))
 
 #Check config keys for typos
   for i in data['presets']:
@@ -241,6 +252,7 @@ if config and preset:
           if write_config_value('finish',int): skip_finish = data['presets'][i]['finish']
           if write_config_value('filesuffix',str): filesuffix_list.append(data['presets'][i]['filesuffix'])
           if write_config_value('videoext',str): file_ext = data['presets'][i]['videoext']
+          if write_config_value('keep_filedate',bool): keep_filedate = data['presets'][i]['keep_filedate']
           #note down used presets, so we can skip them
           presets_found.append(data['presets'][i]['name'].lower())
           #stop the loop once default was applied as a last possible inheritance
@@ -254,7 +266,7 @@ if config and preset:
     else: i+=1
 
   if preset.lower() not in presets_found:
-    print('\nINFO:  Preset \'' + preset + '\' not found, using defaults.')
+    print('\n' + current_time() + ' INFO:  Preset \'' + preset + '\' not found, using defaults.')
     print("\nThere might be a typo in your --preset argument.\nAre you sure you want to continue with default arguments?")
     print('[y/n] ')
     stop = False
@@ -302,6 +314,9 @@ images_dir = Path(tmpdir) / 'images'
 segments_dir = Path(tmpdir) / 'segments'
 excluded_segments_dir = Path(tmpdir) / 'excluded_segments'
 
+#Get modification time from the original
+modification_time = os.stat(video_path).st_mtime_ns
+
 # Change to video container directory
 pushdir(Path(video_path).parent) 
 
@@ -309,7 +324,7 @@ pushdir(Path(video_path).parent)
 ffprobe_out = int( float( subprocess.check_output('ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 -i "' + str(video_path) + '"', shell=True).decode() ) )
 duration = ffprobe_out - skip_finish
 if verbose:
-  print('\nINFO:  Duration of input video: ')
+  print('\n' + current_time() + ' INFO:  Duration of input video: ')
   print(str(duration) + ' seconds')
 
 # Activation and deactivation of whole program sections
@@ -320,7 +335,7 @@ try:
     args.switches.sort()
     for i in range(args.switches[0], args.switches[-1] + 1):
       code_sections.append(i)
-    print('\nINFO:  Execution restricted by user:')
+    print('\n' + current_time() + ' INFO:  Execution restricted by user:')
     print('Only the following program steps will be processed:')
     if 1 in code_sections: print('- Step 1 of 6: Creation of image samples')
     if 2 in code_sections: print('- Step 2 of 6: Analysis through NudeNet AI')
@@ -329,13 +344,13 @@ try:
     if 5 in code_sections: print('- Step 5 of 6: Extract segments at cut markers')
     if 6 in code_sections: print('- Step 6 of 6: Connect segments and save final result')
     logs = True
-    print('\nINFO:  Option --logs was set to true automatically:')
+    print('\n' + current_time() + ' INFO:  Option --logs was set to true automatically:')
     print('Text files will be kept as input for further processing.')
 #if the user didn't specify any sections run all sections
 except: code_sections = [1,2,3,4,5,6]
 
 # Creation of temporary folders
-print('\nINFO:  Creating temporary directory ...')
+print('\n' + current_time() + ' INFO:  Creating temporary directory ...')
 if Path(tmpdir).exists():
     print('WARN:  The following temporary folder will be overwritten:')
     print(os.path.abspath(tmpdir))
@@ -356,7 +371,7 @@ if Path(tmpdir).exists():
 else:
   try:
     os.mkdir(tmpdir)
-    print('INFO:  Created temporary directory')
+    print(current_time() + ' INFO:  Created temporary directory')
   except OSError: sys.exit('Creation of the temporary directory failed')
 print('\n')
 
@@ -387,9 +402,9 @@ def recreate(txt,dir = None):
 if 1 in code_sections: #on/off switch for code
   if fastmode: max_side_length = 800
   else: max_side_length = 1280
-  if verbose and fastmode: print('INFO:  Step 1 of 6: Fast mode activated:')
-  if verbose and fastmode: print('INFO:  Step 1 of 6: Images will be resized to a max side length of ' + str(max_side_length) )
-  print('INFO:  Step 1 of 6: Creating sample images ...')
+  if fastmode: print(current_time() + ' INFO:  Step 1 of 6: Fast mode activated:')
+  if fastmode: print(current_time() + ' INFO:  Step 1 of 6: Images will be resized to a max side length of ' + str(max_side_length) )
+  print(current_time() + ' INFO:  Step 1 of 6: Creating sample images with ffmpeg...')
 
 #Create clean folders/files
   recreate(all_images_txt_path,images_dir)
@@ -413,13 +428,13 @@ if 1 in code_sections: #on/off switch for code
       image_csv.writerow([file])
       if verbose: print(file)
       image_count +=1
-  print('INFO:  Step 1 of 6: Finished creating ' + str(image_count) + ' sample images.\n')    
+  print(current_time() + ' INFO:  Step 1 of 6: Finished creating ' + str(image_count) + ' sample images.\n')    
   os.chdir(startdir)
 
 
 if 2 in code_sections: #on/off switch for code
-  if verbose and fastmode: print('INFO:  Step 2 of 6: Fast mode for NudeNet was activated')
-  print('INFO:  Step 2 of 6: Analysing images with NudeNet ...')
+  if fastmode: print(current_time() + ' INFO:  Step 2 of 6: Fast mode for NudeNet was activated')
+  print(current_time() + ' INFO:  Step 2 of 6: Analysing images with NudeNet ...')
 
 #Create clean folders/files
   recreate(analysis_txt_path)
@@ -447,16 +462,16 @@ if 2 in code_sections: #on/off switch for code
       if verbose: print(' '.join(tag_line))
       tags.clear()
       z += 1
-      if not verbose: print('INFO:  Step 2 of 6: Sample images analysed: ' + str(z) + ' out of ' + str(len(images)),end='\r')
-  print('INFO:  Step 2 of 6: Finished analyzing ' + str(z) + ' images with NudeNet')
+      if not verbose: print(current_time() + ' INFO:  Step 2 of 6: Sample images analysed: ' + str(z) + ' out of ' + str(len(images)),end='\r')
+  print(current_time() + ' INFO:  Step 2 of 6: Finished analysing ' + str(z) + ' images with NudeNet')
   
-  #images_dir can be deleted if analyzation has been finished
+  #images_dir can be deleted if analysation has been finished
   if keep == False: atexit.register(clean_on_exit,images_dir)
   os.chdir(startdir)
 
 
 if 3 in code_sections: #on/off switch for code
-  print('\nINFO:  Step 3 of 6: Finding selected tags ...')
+  print('\n' + current_time() + ' INFO:  Step 3 of 6: Finding selected tags ...')
 
 #Create clean folders/files
   recreate(matched_images_txt_path)
@@ -478,18 +493,18 @@ if 3 in code_sections: #on/off switch for code
       if foundtags:
         matched_images_txt.write(line)
         match_count +=1
-  print('INFO:  Step 3 of 6: Found selected tags in ' + str(match_count) + ' images.')
+  print(current_time() + ' INFO:  Step 3 of 6: Found selected tags in ' + str(match_count) + ' images.')
   if match_count == 0:
     os.chdir(startdir)
-    with open(Path(video_path.stem + addtofilename + '.txt'),"w") as info_txt:
-      infotext = 'INFO:  Step 3 of 6: No matches found :('
+    with open(startdir.joinpath(video_name.stem + addtofilename + '_nomatch.txt'),"w") as info_txt:
+      infotext = current_time() + ' INFO:  Step 3 of 6: No matches found :('
       info_txt.write(infotext)
     sys.exit(infotext)
   os.chdir(startdir)
 
 
 if 4 in code_sections: #on/off switch for code
-  print('\nINFO:  Step 4 of 6: Finding cut positions ...')  
+  print('\n' + current_time() + ' INFO:  Step 4 of 6: Finding cut positions ...')  
 
 #Create clean folders/files
   recreate(cuts_txt_path)
@@ -546,7 +561,7 @@ if 4 in code_sections: #on/off switch for code
     # else go to next sample without doing anything
 
     if verbose: print('Image list: ' + str(imagelist) + '\nBeginnings: ' + str(beginnings) + '\nEndings: ' + str(endings))
-    
+
 # Write results to file    
     for i in range(0, len(beginnings)):
       cuts_txt.write(str(beginnings[i]) + ' ' + str(endings[i]) + ' ' + str(datetime.timedelta(0, beginnings[i])) + ' ' + str(datetime.timedelta(0, endings[i])) + '\n')
@@ -555,18 +570,18 @@ if 4 in code_sections: #on/off switch for code
 
 # Abort if no segments are found
   if len(endings) < 1:
-    infotext = 'INFO:  Step 4 of 6: No segments found. Nothing to cut... :('
-    with open(Path(video_path.stem + addtofilename + '_nomatch.txt'),"w") as info_txt:
+    infotext = current_time() + ' INFO:  Step 4 of 6: No segments found. Nothing to cut... :('
+    with open(startdir.joinpath(video_name.stem + addtofilename + '_nosegments.txt'),"w") as info_txt:
       info_txt.write(infotext)
     sys.exit(infotext)
 # Abort if first segment is identical to the whole source video
   elif beginnings[0] == 0 and endings[0] >= duration - 1:
-    print('INFO:  Step 4 of 6: Found segment is identical to the source video. Nothing to cut... :)')
+    infotext = current_time() + ' INFO:  Step 4 of 6: Found segment is identical to the source video. Nothing to cut... :)'
     #Only copy if video container of source and destination are the same, otherwise convert
     if os.path.splitext(video_name)[1] == '.' + str(file_ext):
-      with open(Path(video_path.stem + addtofilename + '_identical.txt'),"w") as info_txt:
+      with open(startdir.joinpath(video_name.stem + addtofilename + '_identical.txt'),"w") as info_txt:
         info_txt.write(infotext)
-      sys.exit()
+      sys.exit(infotext)
 # In case a copy of the original is wanted, this line could be uncommented:
 #      shutil.copy2(video_path,os.path.splitext(video_path)[0] + addtofilename + os.path.splitext(video_path)[1])
     else: 
@@ -574,7 +589,7 @@ if 4 in code_sections: #on/off switch for code
       os.system('ffmpeg -i "' + str(video_path) + str(os.path.splitext(video_path)[0] + addtofilename + '.' + str(file_ext)))
     sys.exit('Finished converting the video from ' + os.path.splitext(video_path)[1] + ' to ' + str(file_ext))
   else:
-    print('INFO:  Step 4 of 6: Found cut positions resulting in ' + str(len(beginnings)) + ' segments.')
+    print(current_time() + ' INFO:  Step 4 of 6: Found cut positions resulting in ' + str(len(beginnings)) + ' segments.')
 
 
 #option to confirm overwriting in ffmpeg
@@ -587,7 +602,7 @@ if verbose: quietffmpeg = ''
 else: quietffmpeg = ' -v quiet'
 
 if 5 in code_sections: #on/off switch for code
-  print('\nINFO:  Step 5 of 6: Extracting video segments with ffmpeg ...')
+  print('\n' + current_time() + ' INFO:  Step 5 of 6: Extracting video segments with ffmpeg ...')
 
 #Create clean folders/files
   recreate(segments_txt_path,segments_dir)
@@ -595,7 +610,7 @@ if 5 in code_sections: #on/off switch for code
 
   #read timestamps into a list of lists
   with open(cuts_txt_path,"r") as cuts_txt:
-    csv_reader = reader(cuts_txt, delimiter=' ')
+    csv_reader = csv.reader(cuts_txt, delimiter=' ')
     timestamps = list(csv_reader) #[i][0] for beginnings, [i][1] for endings
 
     #Use ffmpeg to extract segments
@@ -608,16 +623,17 @@ if 5 in code_sections: #on/off switch for code
           ffmpeg_cut_start = int(ts[i][0])
           ffmpeg_cut_end = int(ts[i][1])
           ffmpeg_cut_duration = ffmpeg_cut_end - ffmpeg_cut_start
-          segment_name = str(video_name.stem) + '_' + str(ts[i][0]).zfill(7) + '-' + str(ts[i][1]).zfill(7) + '.' + str(file_ext)
+          segment_path = dir.joinpath(video_name.stem + '_' + str(ts[i][0]).zfill(7) + '-' + str(ts[i][1]).zfill(7) + '.' + str(file_ext))
           ffmpeg_cut_input_options = ffmpeg_overwrite + quietffmpeg + ' -vsync 0 -ss ' + str(ts[i][0]) + ' -i "'
-          ffmpeg_cut_output_options = '" -t ' + str(ffmpeg_cut_duration) + ' -c copy ' + segment_name
+          ffmpeg_cut_output_options = '" -t ' + str(ffmpeg_cut_duration) + ' -c copy ' + '"' + str(segment_path) + '"'
           ffmpeg_cut_cmd = 'ffmpeg' + ' ' + ffmpeg_cut_input_options + str(video_path) + ffmpeg_cut_output_options
           #Write output filenames into file for ffmpeg -f concat
-          segments_txt.write("file 'file:" + str(dir.joinpath(segment_name)).replace('\\', '/') + "'\n")
+          segments_txt.write("file 'file:" + str(dir.joinpath(segment_path.stem)).replace('\\', '/') + "'\n")
           if verbose: print(ffmpeg_cut_cmd)
           os.system(ffmpeg_cut_cmd)
-          if not verbose: print('INFO:  Step 5 of 6: Extracting' + negative_str + ' segments: ' + str(i+1) + ' out of ' + str(len(ts)),end='\r')
-        print('INFO:  Step 5 of 6: Finished extracting ' + str(len(ts)) + negative_str + ' video segments.')
+          if keep_filedate: os.utime(segment_path,ns=(modification_time, modification_time))
+          if not verbose: print(current_time() + ' INFO:  Step 5 of 6: Extracting' + negative_str + ' segments: ' + str(i+1) + ' out of ' + str(len(ts)),end='\r')
+        print(current_time() + ' INFO:  Step 5 of 6: Finished extracting ' + str(len(ts)) + negative_str + ' video segments.')
         if txt == excluded_segments_txt_path: os.chdir(segments_dir)
 
     #Makes a new timestamp table with all non-selected parts
@@ -645,7 +661,7 @@ if 5 in code_sections: #on/off switch for code
   
 
 if 6 in code_sections: #on/off switch for code
-  print('\nINFO:  Step 6 of 6: Creating final video with ffmpeg ...')
+  print('\n' + current_time() + ' INFO:  Step 6 of 6: Creating final video with ffmpeg ...')
 
 #Create clean folders/files
   recreate(segments_txt_path)
@@ -671,21 +687,22 @@ if 6 in code_sections: #on/off switch for code
     os.chdir(dir)
     if dir == excluded_segments_dir: negative_str = '_negative'
     else: negative_str = ''
-    ffmpeg_concat_destname = os.path.splitext(video_path)[0] + addtofilename + negative_str + '.' + str(file_ext)
+    ffmpeg_concat_destpath = Path(os.path.splitext(video_path)[0] + addtofilename + negative_str + '.' + str(file_ext))
     ffmpeg_concat_options = quietffmpeg + ffmpeg_overwrite + ' -vsync 0 -safe 0 -f concat -i "' + txt.replace('\\', '/') + '" -c copy'
-    ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ' ' + '"' + ffmpeg_concat_destname + '"'
+    ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ' ' + '"' + str(ffmpeg_concat_destpath) + '"'
     #Don't use ffmpeg concat if it is only a single segment with the same video cotainer
     if (count == 1) and (os.path.splitext(video_name)[1] == '.' + str(file_ext)):
-      shutil.move(os.path.join(dir,Path(file_list[0])),Path(ffmpeg_concat_destname))
+      shutil.move(os.path.join(dir,Path(file_list[0])),ffmpeg_concat_destpath)
     else:
       if verbose: print(ffmpeg_concat_cmd)
       os.system(ffmpeg_concat_cmd)
+    if keep_filedate: os.utime(ffmpeg_concat_destpath,ns=(modification_time, modification_time))
 
   concat_segments(segments_dir,segments_txt_path,segment_files,segments_count)
   if create_negative:
     if excluded_segments_count > 0:
       concat_segments(excluded_segments_dir,excluded_segments_txt_path,excluded_segment_files,excluded_segments_count)
-  print('INFO:  Step 6 of 6: Finished creating final video with ffmpeg.')
+  print(current_time() + ' INFO:  Step 6 of 6: Finished creating final video with ffmpeg.')
 
 #segments_dir can be deleted if final video has been made
   if keep == False: 
