@@ -582,7 +582,7 @@ if 1 in code_sections: #on/off switch for code
 
     
    #Create an exact last image (not a keyframe)
-   # https://trac.ffmpeg.org/ticket/5093
+   # https://superuser.com/a/1448673
     if skip_finish:
       'ffmpeg' + ' -y -copyts -start_at_zero -sseof -' + skip_finish + ' ' + image_ffmpeg_inputpath + ' ' + image_ffmpeg_stop + ' -vframes 1 -vf "showinfo" -vsync 0 -an -qmin 1 -q:v 1' + ' ' + str(len(image_timestamps)+1).zfill(7) + '.jpg'
     else: 
