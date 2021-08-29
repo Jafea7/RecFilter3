@@ -45,53 +45,58 @@ print('\n--- RecFilter3 ---')
 parser = argparse.ArgumentParser(prog='RecFilter', description='RecFilter: Remove SFW sections of videos')
 parser.add_argument('file', type=str, help='Video file to process')
 parser.add_argument('-i', '--interval', type=int, help='Interval between image samples (default: 5)')
+#gap cut split slice separate pause break, merge bridge
 parser.add_argument('-g', '--gap', type=int, help='Split segments more than x seconds apart (default: 30)')
-parser.add_argument('-d', '--duration', type=int, help='Discard segments shorter than x seconds (default: 10)')
+#extension extend expand enlarge elongate stretch broaden lengthen prolong widen protrude overhang attach reach radius scope sphere area keep range zone width span radius duration size resolution adjustment
 parser.add_argument('-e', '--extension', type=int, help='Extend start and end of segments by x seconds (default: 3)')
-parser.add_argument('-b', '--beginning', type=int, help='Skip x seconds of beginning (default: 0)')
-parser.add_argument('-f', '--finish', type=int, help='Skip x seconds of finish (default: 0)')
+#duration minduration discard drop
+parser.add_argument('-d', '--duration', type=int, help='Discard segments shorter than x seconds (default: 10)')
+#startafter start begin skip
+parser.add_argument('-a', '--startafter', type=int, help='Skip x seconds after beginning (default: 0)')
+parser.add_argument('-b', '--stopbefore', type=int, help='Skip x seconds before finish (default: 0)')
 parser.add_argument('-p', '--preset', type=str, help='Name of the config preset to use')
-parser.add_argument('-s', '--subset', type=str, help='Subset of preset, eg. site that the model appears on')
+#category subset set group type kind class
+parser.add_argument('-c', '--category', type=str, help='Category of the preset, e.g. site that the model appears on')
+#wanted include match contain permit search find needed
 parser.add_argument('-w', '--wanted', type=str, help='Tags being used, seperated by comma')
+#unwanted unneeded exclude discard reject drop
 parser.add_argument('-u', '--unwanted', type=str, help='Tags being specifically excluded, seperated by comma')
-parser.add_argument('-q', '--quick', default=False, action='store_true', help='Lower needed certainty for matches from 0.6 to 0.5 (default: False)')
+#fast quick rapid
+parser.add_argument('-f', '--fast', action='store_true', help='Lower needed certainty for matches from 0.6 to 0.5 (default: False)')
+#negative inverse opposite transposed sfw
+parser.add_argument('-n', '--negative', default=False, action='store_true', help='Create compililation of all excluded segments too')
 parser.add_argument('-l', '--logs', default=False, action='store_true', help='Keep the logs after every step (default: False)')
 parser.add_argument('-k', '--keep', default=False, action='store_true', help='Keep all temporary files (default: False)')
+#quiet silent batch unattended
+parser.add_argument('-q', '--quiet', default=False, action='store_true', help='No user interactions. E.g. for batch processing (default: False)')
 parser.add_argument('-v', '--verbose', default=False, action='store_true', help='Output working information (default: False)')
-parser.add_argument('-y', '--overwrite', default=False, action='store_true', help='Confirm all questions to overwrite (batch process)')
-parser.add_argument('-n', '--negative', default=False, action='store_true', help='Create compililation of all excluded segments too')
-parser.add_argument('-1', '--images', action='append_const', dest='switches', const=1, help='Only create image samples')
-parser.add_argument('-2', '--analyse', action='append_const', dest='switches', const=2, help='Only analyse with NudeNet AI. Requires all_images.txt')
-parser.add_argument('-3', '--match', action='append_const', dest='switches', const=3, help='Only find matching tags. Requires analysis.txt')
-parser.add_argument('-4', '--timestamps', action='append_const', dest='switches', const=4, help='Only find cut positions. Requires matched_images.txt')
-parser.add_argument('-5', '--split', action='append_const', dest='switches', const=5, help='Only extract segments at cut markers. Requires cuts.txt')
-parser.add_argument('-6', '--save', action='append_const', dest='switches', const=6, help='Only connect segements and save final result. Requires segments.txt')
+parser.add_argument('-1', '--images', action='append_const', dest='switches', const=1, help='Create sample images and allimages.txt with ffmpeg')
+parser.add_argument('-2', '--analyse', action='append_const', dest='switches', const=2, help='Create analysis.txt with NudeNet AI; Requires all_images.txt')
+parser.add_argument('-3', '--match', action='append_const', dest='switches', const=3, help='Create matched_images.txt; Requires analysis.txt')
+parser.add_argument('-4', '--timestamps', action='append_const', dest='switches', const=4, help='Create cuts.txt; Requires matched_images.txt')
+parser.add_argument('-5', '--split', action='append_const', dest='switches', const=5, help='Extract segments and create segements.txt; Requires cuts.txt')
+parser.add_argument('-6', '--save', action='append_const', dest='switches', const=6, help='Connect segements and save final result; Requires segments.txt')
 
 args = parser.parse_args()
 
-#Only really use subset when preset given
+#Only really use category when preset given
 if args.preset:
   preset = args.preset.lower()
-  if args.subset: subset = args.subset.lower()
-  else: subset = False
+  if args.category: category = args.category.lower()
+  else: category = False
 else:
   preset = 'default'
-  if args.subset: preset = args.subset.lower()
-  else: subset = False
-    
+  if args.category: preset = args.category.lower()
+  else: category = False
+
 
 video_name = Path(args.file)
-fastmode = args.quick
 keep = args.keep
 logs = args.logs
 verbose = args.verbose
 create_negative = args.negative
+quiet = args.quiet
 keep_filedate = True
-
-# Create variables in case no --overwrite given
-if args.overwrite: overwrite = True #allow overwriting temp folder
-else: overwrite = False
-
 
 # Default wanted is gender neutral, if a particular gender is required it can be entered into the config file per preset
 # Other terms can also be set in the config, see https://github.com/Jafea7/RecFilter3 for valid terms
@@ -121,13 +126,13 @@ if args.extension:
   segment_extension = args.extension
   commandline['extension'] = args.extension
 else: segment_extension = 3
-if args.beginning:
-  skip_begin = args.beginning
-  commandline['begin'] = args.beginning
+if args.startafter:
+  skip_begin = args.startafter
+  commandline['startafter'] = args.startafter
 else: skip_begin = 0
-if args.finish:
-  skip_finish = args.finish
-  commandline['finish'] = args.finish
+if args.stopbefore:
+  skip_finish = args.stopbefore
+  commandline['stopbefore'] = args.stopbefore
 else: skip_finish = 0
 if args.wanted:
   wanted = args.wanted.split(',')
@@ -135,152 +140,269 @@ if args.wanted:
 if args.unwanted:
   unwanted = args.unwanted.split(',')
   commandline['exclude'] =  args.unwanted
-
+if args.fast:
+  fastmode = args.fast
+  commandline['fastmode'] =  args.fast
+else: fastmode = False
 
 #Load config
-config_path = Path(os.path.splitext(sys.argv[0])[0] + '.json')
+config_path = Path(os.path.splitext(sys.argv[0])[0] + '.config')
 if config_path.exists() == False:
   print('\nWARN:  No config file \'%s\' found.' % config_path)
 else:
   try:
     with open(config_path,"r") as f:
-      data = json.load(f)
-      config = True
+      config = yaml.safe_load(f)
+      config_valid = True
   except Exception as config_error: 
     print('\nERROR:  Config file ' + str(config_path) + ' is invalid. The following error occured: ')
     print(config_error)
-    config = False
-  if config_path.exists() == False or config == False:
-    print("Do you you want to continue with default arguments instead?")
-    print('[y/n] ')
-    stop = False
-    while stop == False:
-      answer = str( input().lower().strip() )
-      if answer == 'y':
-        stop = True
-      elif answer == 'n':
-        stop = True
-        sys.exit()
-      else: print("Please enter y or n.")
+    config_valid = False
+  if config_path.exists() == False or config_valid == False:
+      print("Do you you want to continue with default arguments instead?")
+      print('[y/n] ')
+      stop = False
+      while stop == False:
+        answer = str( input().lower().strip() )
+        if answer == 'y':
+          stop = True
+        elif answer == 'n':
+          stop = True
+          sys.exit()
+        else: print("Please enter y or n.")
 
 
-if config and preset:
-#Check whether a line in the config even exists
-  def config_line_exists(key):
-  #the following try block on the datatype is necessary to check for existence, 
-  #because in the case values are set to 0 it will give back False instead of True
-    try:
-      if type(data['presets'][i][key]):
-        return True
-    except:
-      return False
-  
-#Check whether the value hasn't been set already by a higher priority preset
-  def write_config_value(key,type):
-    if config_line_exists(key):
-      if isinstance(data['presets'][i][key],type):
-        #Don't overwrite values given via command line
-        if (key in commandline) == False:
-          #Inherit has to be allowed. Otherwise it prevents a second inherit.
-          if ((key in inconfig) == False) or (key == 'inherit') or (key == 'filesuffix'):
-            #split up tags to not use up too much space
-            if key == ('include' or 'exclude'):
-              split_tags = format(data['presets'][i][key]).split(',')
-              for tag in split_tags:
-                print('Preset: ' + format(data['presets'][i]['name'] + '  ').ljust(max_presetname_len,'-')[:30] + ('>  ' + key + ': ').rjust(max_key_len+5,'-') + tag)
-            else:
-              print('Preset: ' + format(data['presets'][i]['name'] + '  ').ljust(max_presetname_len,'-')[:30] + ('>  ' + key + ': ').rjust(max_key_len+5,'-') + str(data['presets'][i][key]))
-            inconfig.append(key)
-            return True
-          else: return False
-        else: return False
-      else: sys.exit('\nERROR:  ' + key + ' in preset ' + data['presets'][i]['name'] + ' needs to be ' + str(type))
-    else: return False
-
-#Used variables
-  inconfig = []
-  inherit = ''
-  presets_found = []
-  max_presetname_len = 0
-  filesuffix_list = []
-  list_of_valid_config_keys = ['name','note','inherit','interval','gap','duration','extension','subset','include','exclude','begin','finish','filesuffix','videoext','keep_filedate']
-  max_key_len = 0
-
-#Find longest key name for formatting the output
-  for i in range(0,len(list_of_valid_config_keys)):
-    if len(list_of_valid_config_keys[i]) > max_key_len:
-        max_key_len = len(list_of_valid_config_keys[i])
-
-#Find longest preset name for formatting the output
-  for i in range(0,len(data['presets'])):
-    if len(data['presets'][i]['name']) > max_presetname_len:
-        max_presetname_len = len(data['presets'][i]['name'])
-
-  print('\n' + current_time() + ' INFO:  Using the following settings:')
+list_of_valid_config_keys = ['note','inherit','interval','gap','duration','extension','category','include','exclude','startafter','stopbefore','filesuffix','videoext','fastmode','destination','move_original','rename_identical','move_identical','rename_noresult','move_noresult','move_segments','move_txt_files','confirm_overwrite','confirm_defaults','create_noresult_txt','create_identical_txt','keep_filedate']
+main_settings_list = ['interval','gap','duration','extension','include','exclude','fastmode']
+main_settings = []
+other_settings = []
 
 #Ouput command line settings
-  for i in range(0,len(commandline)):
-    print('Preset: ' + 'commandline  '.ljust(max_presetname_len,'-') + ('>  ' + str(list(commandline.items())[i][0]) + ': ').rjust(max_key_len+5,'-') + (str(list(commandline.items())[i][1])))
+for key, value in commandline.items():
+  if key in main_settings_list:
+    main_settings.append(('commandline',key,value))
+  else: other_settings.append(('commandline',key,value))
+
+if config_valid and preset:
+
+#Used lists
+  presets_found = []
+  filesuffix_list = []
+  inconfig = []
+
+#Check whether the value hasn't been set already by a higher priority preset
+  def write_config_value(key,type):
+    #Check whether key exists for preset
+    if preset_dict.get(key) is not None:
+      if type != 'path':
+        if isinstance(preset_dict.get(key),type):
+          #Don't overwrite values given via command line
+          if (key in commandline) == False:
+            #Inherit has to be allowed. Otherwise it prevents a second inherit.
+            if ((key in inconfig) == False) or (key == 'inherit') or (key == 'filesuffix'):
+              inconfig.append(key)
+              if key in main_settings_list:
+                main_settings.append((preset_name,key,preset_dict.get(key)))
+              else: other_settings.append((preset_name,key,preset_dict.get(key)))
+              return True
+            else: return False
+          else: return False
+        else: sys.exit('\nERROR:  ' + key + ' in preset ' + preset_name + ' needs to be ' + str(type))
+    else: return False
 
 #Check config keys for typos
-  for i in data['presets']:
-    for j in i:
+  for i in list(config.items()):
+    for j in i[1]:
       if j in list_of_valid_config_keys: pass
       else: sys.exit('\nERROR:  Config key ' + j + ' is invalid. Check for typos.')
 
 #Loop through all the config presets
+  inherit = ''
   i = 0
-  while i < len(data['presets']):
+  while i < 2:
     justinherited = False #reset re-loop trigger
-    #skip presets that have already been applied
-    if (data['presets'][i]['name'].lower() in presets_found) == False:
-      if (data['presets'][i]['name'].lower() == preset) or (data['presets'][i]['name'].lower() == inherit):
-        #reset inherit to an empty string once we were able to use it to get into the right preset         
-        if data['presets'][i]['name'].lower() == inherit: inherit = ''
-        #if subset is used, the subset has to match, otherwise only inherit allows entry
-        if (subset == False) or (subset and data['presets'][i]['subset'].lower() == subset):
-          if write_config_value('inherit',str):
-            inherit = (data['presets'][i]['inherit'])
-            justinherited = True #trigger to rerun preset loop
-          if write_config_value('interval',int): sample_interval = data['presets'][i]['interval']
-          if write_config_value('gap',int): segment_gap = data['presets'][i]['gap']
-          if write_config_value('duration',int): min_segment_duration = data['presets'][i]['duration']
-          if write_config_value('extension',int): segment_extension = data['presets'][i]['extension']
-          if write_config_value('include',str): wanted = data['presets'][i]['include'].split(',')
-          if write_config_value('exclude',str): unwanted = data['presets'][i]['exclude'].split(',')
-          if write_config_value('begin',int): skip_begin = data['presets'][i]['begin']
-          if write_config_value('finish',int): skip_finish = data['presets'][i]['finish']
-          if write_config_value('filesuffix',str): filesuffix_list.append(data['presets'][i]['filesuffix'])
-          if write_config_value('videoext',str): file_ext = data['presets'][i]['videoext']
-          if write_config_value('keep_filedate',bool): keep_filedate = data['presets'][i]['keep_filedate']
-          #note down used presets, so we can skip them
-          presets_found.append(data['presets'][i]['name'].lower())
-          #stop the loop once default was applied as a last possible inheritance
-          if 'default' in presets_found: break
+    for preset_name,preset_dict in config.items():
+      #skip presets that have already been applied
+      if (preset_name in presets_found) == False:
+        if (preset_name == preset) or (preset_name == inherit):
+          #reset inherit to an empty string once we were able to use it to get into the right preset
+          if preset_name == inherit: inherit = ''
+          #if category is used, the category has to match, otherwise only inherit allows entry
+          if (category == False) or (category and preset_dict.get('category') == category):
+            if write_config_value('inherit',str):
+              inherit = preset_dict.get('inherit')
+              justinherited = True #trigger to rerun preset loop
+            if write_config_value('code',str): code = preset_dict.get('code')
+            if write_config_value('interval',int): sample_interval = preset_dict.get('interval')
+            if write_config_value('gap',int): segment_gap = preset_dict.get('gap')
+            if write_config_value('extension',int): segment_extension = preset_dict.get('extension')
+            if write_config_value('duration',int): min_segment_duration = preset_dict.get('duration')
+            if write_config_value('include',str): wanted = preset_dict.get('include').split(',')
+            if write_config_value('exclude',str): unwanted = preset_dict.get('exclude').split(',')
+            if write_config_value('startafter',int): skip_begin = preset_dict.get('startafter')
+            if write_config_value('stopbefore',int): skip_finish = preset_dict.get('stopbefore')
+            if write_config_value('filesuffix',str): filesuffix_list.append(preset_dict.get('filesuffix'))
+            if write_config_value('code_suffix',bool): code_suffix = preset_dict.get('code_suffix')
+            if write_config_value('videoext',str): file_ext = preset_dict.get('videoext')
+            if write_config_value('fastmode',bool): fastmode = preset_dict.get('fastmode')
+            if write_config_value('destination','path'): destination = preset_dict.get('destination')
+            if write_config_value('tempdir','path'): tempdir = preset_dict.get('tempdir')
+            if write_config_value('move_original','path'): move_original = preset_dict.get('move_original')
+            if write_config_value('move_tempdir','path'): move_tempdir = preset_dict.get('move_tempdir')
+            if write_config_value('rename_identical','path'): rename_identical = preset_dict.get('rename_identical')
+            if write_config_value('move_identical','path'): move_identical = preset_dict.get('move_identical')
+            if write_config_value('rename_noresult','path'): rename_noresult = preset_dict.get('rename_noresult')
+            if write_config_value('move_noresult','path'): move_noresult = preset_dict.get('move_noresult')
+            if write_config_value('move_segments','path'): move_segments = preset_dict.get('move_segments')
+            if write_config_value('move_txt_files','path'): move_segments = preset_dict.get('move_segments')
+            if write_config_value('confirm_overwrite',bool): confirm_overwrite = preset_dict.get('confirm_overwrite')
+            if write_config_value('confirm_defaults',bool): confirm_defaults = preset_dict.get('confirm_defaults')
+            if write_config_value('create_noresult_txt',bool): create_noresult_txt = preset_dict.get('create_noresult_txt')
+            if write_config_value('create_identical_txt',bool): create_identical_txt = preset_dict.get('create_identical_txt')
+            if write_config_value('create_contact_sheet',bool): create_contact_sheet = preset_dict.get('create_contact_sheet')
+            if write_config_value('keep_filedate',bool): keep_filedate = preset_dict.get('keep_filedate')
+            #note down used presets, so we can skip them
+            presets_found.append(preset_name)
+            #stop the loop once default was applied as a last possible inheritance
+            if 'default' in presets_found: break
     #if it was the last preset and no inheritance has been set, inherit the default preset
-    if (i >= len(data['presets']) - 1) and inherit == '':
+    if (i == 1) and inherit == '':
       inherit = 'default'
       justinherited = True
     #If a preset inherits look through all presets again
     if justinherited: i = 0
     else: i+=1
-
+ 
   if preset.lower() not in presets_found:
-    print('\n' + current_time() + ' INFO:  Preset \'' + preset + '\' not found, using defaults.')
-    print("\nThere might be a typo in your --preset argument.\nAre you sure you want to continue with default arguments?")
-    print('[y/n] ')
-    stop = False
-    while stop == False:
-      answer = str( input().lower().strip() )
-      if answer == 'y':
-        stop = True
-      elif answer == 'n':
-        stop = True
-        sys.exit()
-      else: print("Please enter y or n.")
+    print('\n' + current_time() + ' INFO:  Preset \'' + preset + '\' not found.')
+    if (not quiet):
+      print("\nThere might be a typo in your --preset argument.\nDo you want to continue with default settings instead?")
+      print('[y/n] ')
+      stop = False
+      while stop == False:
+        answer = str( input().lower().strip() )
+        if answer == 'y':
+          stop = True
+          print('Using defaults')
+        elif answer == 'n':
+          stop = True
+          sys.exit()
+        else: print("Please enter y or n.")
+    if quiet and (not confirm_defaults): sys.exit('confirm_defaults = False')
+
+print('\n' + current_time() + ' INFO:  Using the following settings:')
+
+#Find longest key name for formatting the output
+max_key_len = 0
+for i in range(0,len(list_of_valid_config_keys)):
+  if len(list_of_valid_config_keys[i]) > max_key_len:
+      max_key_len = len(list_of_valid_config_keys[i])
+
+#Find longest preset name for formatting the output
+max_presetname_len = 0
+def find_longest_preset_name(tuple):
+  global max_presetname_len
+  for setting in tuple:
+    if len(setting[0]) > max_presetname_len:
+      max_presetname_len = len(setting[0])
+
+find_longest_preset_name(main_settings)
+find_longest_preset_name(other_settings)
+
+def settings_output(title,tuple):
+  print(title)
+  for setting in tuple:
+    #split up tags to not use up too much space
+    if setting[1] == ('include' or 'exclude'):
+      split_tags = format(setting[2]).split(',')
+      for tag in split_tags:
+        print('Preset: ' + format(str(setting[0]) + '  ').ljust(max_presetname_len+2,'-')[:30] + ('>  ' + str(setting[1]) + ': ').rjust(max_key_len+5,'-') + str(tag))
+    else: print('Preset: ' + format(str(setting[0]) + '  ').ljust(max_presetname_len+2,'-')[:30] + ('>  ' + str(setting[1]) + ': ').rjust(max_key_len+5,'-') + str(setting[2]))
+
+settings_output('\nMain Settings:',main_settings)
+
+tag_codes = [
+(["01"],"EXPOSED_ANUS"),
+(["02"],"EXPOSED_ARMPITS"),
+(["03"],"COVERED_BELLY"),
+(["04"],"EXPOSED_BELLY"),
+(["05"],"COVERED_BUTTOCKS"),
+(["06"],"EXPOSED_BUTTOCKS"),
+(["07"],"FACE_F"),
+(["08"],"FACE_M"),
+(["09"],"COVERED_FEET"),
+(["10"],"EXPOSED_FEET"),
+(["11"],"COVERED_BREAST_F"),
+(["12"],"EXPOSED_BREAST_F"),
+(["13"],"COVERED_GENITALIA_F"),
+(["14"],"EXPOSED_GENITALIA_F"),
+(["15"],"EXPOSED_BREAST_M"),
+(["16"],"EXPOSED_GENITALIA_M"),
+(["07","08"],"FACE"),
+(["12","15"],"EXPOSED_BREAST"),
+(["14","16"],"EXPOSED_GENITALIA")
+]
+
+used_integers = []
+wanted_tag_codes = []
+unwanted_tag_codes = []
+
+for j in main_settings:
+  if j[1] == 'interval':
+    used_integers.append('i'+str(j[2]))
+  if j[1] == 'gap':
+    used_integers.append('g'+str(j[2]))
+  if j[1] == 'duration':
+    used_integers.append('d'+str(j[2]))
+  if j[1] == 'extension':
+    used_integers.append('e'+str(j[2]))
+  if j[1] == 'fastmode':
+    if j[2] == True: used_integers.append('f1')
+  if j[1] == 'include':
+    for k in j[2].split(','):
+      for i in tag_codes:
+        if k == i[1]: wanted_tag_codes = wanted_tag_codes + i[0]
+  if j[1] == 'exclude':
+    for l in j[2].split(','):
+      for m in tag_codes:
+        if l == m[1]: unwanted_tag_codes = unwanted_tag_codes + m[0]
+
+version = 'v1'
+wanted_char = 'w'
+if unwanted_tag_codes:
+  unwanted_char = 'u'
+else:
+  unwanted_char = ''
+code = version + ''.join(sorted(used_integers,reverse=True)) + wanted_char + ''.join(sorted(list(set(wanted_tag_codes)))) + unwanted_char + ''.join(sorted(list(set(unwanted_tag_codes)))) + version
+
+print('\nThe Main Settings can be identified and reused with this code: ')
+print(code)
+
+settings_output('\nOther Settings:',other_settings)
 
 #Check tags for typos
-valid_tags = ["EXPOSED_ANUS","EXPOSED_ARMPITS","COVERED_BELLY","EXPOSED_BELLY","COVERED_BUTTOCKS","EXPOSED_BUTTOCKS","FACE_F","FACE_M","COVERED_FEET","EXPOSED_FEET","COVERED_BREAST_F","EXPOSED_BREAST_F","COVERED_GENITALIA_F","EXPOSED_GENITALIA_F","EXPOSED_BREAST_M","EXPOSED_GENITALIA_M","FACE","EXPOSED_BREAST","EXPOSED_GENITALIA"]
+valid_tags = [
+"EXPOSED_ANUS",
+"EXPOSED_ARMPITS",
+"COVERED_BELLY",
+"EXPOSED_BELLY",
+"COVERED_BUTTOCKS",
+"EXPOSED_BUTTOCKS",
+"FACE_F",
+"FACE_M",
+"COVERED_FEET",
+"EXPOSED_FEET",
+"COVERED_BREAST_F",
+"EXPOSED_BREAST_F",
+"COVERED_GENITALIA_F",
+"EXPOSED_GENITALIA_F",
+"EXPOSED_BREAST_M",
+"EXPOSED_GENITALIA_M",
+
+"FACE",
+"EXPOSED_BREAST",
+"EXPOSED_GENITALIA"
+]
 
 if wanted[0] == 'NONE':
   sys.exit('No tags to match specified. At least one Tag must be specified.')
@@ -321,8 +443,9 @@ modification_time = os.stat(video_path).st_mtime_ns
 pushdir(Path(video_path).parent) 
 
 #Finding video duration
-ffprobe_out = int( float( subprocess.check_output('ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 -i "' + str(video_path) + '"', shell=True).decode() ) )
-duration = ffprobe_out - skip_finish
+ffprobe_cmd = subprocess.check_output('ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 -i "' + str(video_path) + '"', shell=True).decode()
+duration_float = round(float(ffprobe_cmd),3)
+duration = int(round(duration_float))
 if verbose:
   print('\n' + current_time() + ' INFO:  Duration of input video: ')
   print(str(duration) + ' seconds')
@@ -354,20 +477,20 @@ print('\n' + current_time() + ' INFO:  Creating temporary directory ...')
 if Path(tmpdir).exists():
     print('WARN:  The following temporary folder will be overwritten:')
     print(os.path.abspath(tmpdir))
-    print('\nAre you sure you want to potentially overwrite previous results?')
-    print('[y/n] ')
-    stop = 0
-    while stop == 0:
-      if overwrite == True:
-        answer = 'y'
-      else:
+    if (not quiet):
+      print('\nAre you sure you want to potentially overwrite previous results?')
+      print('[y/n] ')
+      stop = 0
+      while stop == 0:
         answer = str( input().lower().strip() )
-      if answer == 'y':
-        stop = 1
-      elif answer == 'n':
-        sys.exit('Creation of the temporary directory failed')
-        stop = 1
-      else: print("Please enter y or n.")
+        if answer == 'y':
+          stop = 1
+        elif answer == 'n':
+          sys.exit('Creation of the temporary directory failed')
+          stop = 1
+        else: print("Please enter y or n.")
+    else:
+      if quiet and (not confirm_overwrite): sys.exit('confirm_overwrite = False')
 else:
   try:
     os.mkdir(tmpdir)
@@ -410,22 +533,74 @@ if 1 in code_sections: #on/off switch for code
   recreate(all_images_txt_path,images_dir)
   os.chdir(images_dir)
 
-#Create images with ffmpeg
+#ffmpeg image creation
   with open(all_images_txt_path,"w", newline='') as all_images_txt:
     image_ffmpeg_filenames = '%07d.jpg'
     image_ffmpeg_inputpath = '-i "'+ str(video_path) + '"'
     if fastmode: image_ffmpeg_resize = "',scale=\'" + str(max_side_length) + ":" + str(max_side_length) + ":force_original_aspect_ratio=decrease\'"
     else: image_ffmpeg_resize = "',scale=\'" + str(max_side_length) + ":" + str(max_side_length) + ":force_original_aspect_ratio=decrease\'"
-    image_ffmpeg_inputoptions = ' -v quiet -y -skip_frame nokey -copyts -start_at_zero -ss ' + str(skip_begin)
-    image_ffmpeg_outputoptions = '-t ' + str(duration) + ' -vf "fps=1,select=\'not(mod(t,' + str(sample_interval) + '))' + image_ffmpeg_resize + '"' + ' -vsync 0 -an -qmin 1 -q:v 1' + ' ' + image_ffmpeg_filenames
-    image_ffmpeg_cmd = 'ffmpeg' + ' ' + image_ffmpeg_inputoptions + ' ' + image_ffmpeg_inputpath + ' ' + image_ffmpeg_outputoptions
+    if skip_finish: image_ffmpeg_stop = ' -t ' + str(duration_float)-skip_finish
+    else: image_ffmpeg_stop =  ' '
+    image_ffmpeg_inputoptions = ' -y -skip_frame nokey -copyts -start_at_zero -ss ' + str(skip_begin)
+    #showinfo has to be used before and after the fps function to get correct timestamps
+    image_ffmpeg_filters = ' -vf "showinfo,fps=1,select=\'not(mod(t,' + str(sample_interval) + '))' + image_ffmpeg_resize + ',showinfo"'
+    image_ffmpeg_outputoptions = image_ffmpeg_stop + ' -vsync 0 -an -qmin 1 -q:v 1'
+    image_ffmpeg_cmd = 'ffmpeg' + image_ffmpeg_inputoptions + ' ' + image_ffmpeg_inputpath + image_ffmpeg_filters + image_ffmpeg_outputoptions + ' ' + image_ffmpeg_filenames
+
+    
+
+   #Create other images with ffmpeg fps filter
     if verbose: print(image_ffmpeg_cmd)
-    os.system(image_ffmpeg_cmd)
-    image_csv = csv.writer(all_images_txt)
+    #For some reason ffmpeg sends its showinfo output to stderr instead of stdout
+    image_ffmpeg_output = subprocess.run(image_ffmpeg_cmd,check=True,capture_output=True,text=True)
+
+   #Identify image timestamps
+   # https://stackoverflow.com/questions/51325158/ffmpeg-timestamp-information-using-fps-filter-isnt-aligned-with-ffprobe
+    image_timestamps = []
+    input_frames_lines = []
+    fps_filter_frames_lines = []
+    input_table = {}
+    output_positions = []
+
+    for line in image_ffmpeg_output.stderr.splitlines():
+      if ('Parsed_showinfo_0' in line) and ('pts_time' in line):
+        input_frames_lines.append(line)
+      elif ('Parsed_showinfo_') in line and ('pts_time' in line):
+        fps_filter_frames_lines.append(line)
+
+    for line in input_frames_lines:
+      input_timestamp = re.search(r' pts_time:[ ]*([0-9\.]+) ',str(line)).group(1)
+      input_position = re.search(r' pos:[ ]*([0-9]+) ',str(line)).group(1)
+      if input_timestamp and input_position:
+#        input_table.append([input_timestamp,input_position])
+        input_table[input_position] = input_timestamp
+    for line in fps_filter_frames_lines:
+      output_position = re.search(r' pos:[ ]*([0-9]+) ',str(line)).group(1)
+      if output_position: output_positions.append(output_position)
+    for pos in output_positions:
+      image_timestamps.append(input_table[pos])
+
+    
+   #Create an exact last image (not a keyframe)
+   # https://trac.ffmpeg.org/ticket/5093
+    if skip_finish:
+      'ffmpeg' + ' -y -copyts -start_at_zero -sseof -' + skip_finish + ' ' + image_ffmpeg_inputpath + ' ' + image_ffmpeg_stop + ' -vframes 1 -vf "showinfo" -vsync 0 -an -qmin 1 -q:v 1' + ' ' + str(len(image_timestamps)+1).zfill(7) + '.jpg'
+    else: 
+      image_ffmpeg_last_cmd = 'ffmpeg' + ' -y -copyts -start_at_zero -sseof -0.1' + ' ' + image_ffmpeg_inputpath  + ' -update 1 -vf "showinfo" -vsync 0 -an -qmin 1 -q:v 1' + ' ' + str(len(image_timestamps)+1).zfill(7) + '.jpg'
+    if verbose: print(image_ffmpeg_first_cmd)
+    image_ffmpeg_last_output = subprocess.run(image_ffmpeg_last_cmd,check=True,capture_output=True,text=True)
+    for line in image_ffmpeg_last_output.stderr.splitlines():
+      if ('Parsed_showinfo_') in line and ('pts_time' in line):
+        last_timestamp = re.search(r' pts_time:[ ]*([0-9\.]+) ',str(line)).group(1)
+    if last_timestamp > image_timestamps[-1]:
+      image_timestamps.append(last_timestamp)
+    else: os.remove(str(len(image_timestamps)+1).zfill(7) + '.jpg')
+
+    image_csv = csv.writer(all_images_txt,delimiter=' ')
     file_list = [f for f in os.listdir(images_dir) if re.search(r'[0-9]{7}.jpg', f)]
     image_count = 0
     for file in file_list:
-      image_csv.writerow([file])
+      image_csv.writerow([image_timestamps[image_count],file])
       if verbose: print(file)
       image_count +=1
   print(current_time() + ' INFO:  Step 1 of 6: Finished creating ' + str(image_count) + ' sample images.\n')    
@@ -447,22 +622,23 @@ if 2 in code_sections: #on/off switch for code
   #Load images into NudeNet for analysis
   with open(all_images_txt_path,"r") as all_images_txt, open(analysis_txt_path,"w",newline='') as analysis_txt:
 #    images = [line.rstrip('\n') for line in all_images_txt]
-    images = []
-    for row in csv.reader(all_images_txt): images.append(row[0])
+    image_lines = []
+    for row in csv.reader(all_images_txt): image_lines.append(row[0])
     tags =[]
     z = 0
-    for image in images:
+    for image_line in image_lines:
+      image_path = re.search(r'[0-9]{7}\.jpg', image_line).group()
       #correcting wrong json output from NudeNet
-      if fastmode: json_string = str(detector.detect(image, mode='fast')).replace("'",'"')
-      else: json_string = str(detector.detect(image)).replace("'",'"')
+      if fastmode: json_string = str(detector.detect(image_path, mode='fast')).replace("'",'"')
+      else: json_string = str(detector.detect(image_path)).replace("'",'"')
       for entry in json.loads(json_string):
         tags.append(entry['label'])
-      tag_line = [image] + sorted(tags)
-      csv.writer(analysis_txt,delimiter=' ').writerow(tag_line)
-      if verbose: print(' '.join(tag_line))
+      tag_line = image_line + ' ' + ' '.join(sorted(tags)) + '\n'
+      analysis_txt.write(tag_line)
+      if verbose: print(tag_line)
       tags.clear()
       z += 1
-      if not verbose: print(current_time() + ' INFO:  Step 2 of 6: Sample images analysed: ' + str(z) + ' out of ' + str(len(images)),end='\r')
+      if not verbose: print(current_time() + ' INFO:  Step 2 of 6: Sample images analysed: ' + str(z) + ' out of ' + str(len(image_lines)),end='\r')
   print(current_time() + ' INFO:  Step 2 of 6: Finished analysing ' + str(z) + ' images with NudeNet')
   
   #images_dir can be deleted if analysation has been finished
@@ -512,9 +688,7 @@ if 4 in code_sections: #on/off switch for code
 
   with open(matched_images_txt_path,"r") as matched_images_txt, open(cuts_txt_path,"w") as cuts_txt:
     for line in matched_images_txt:
-      match = re.search(r'\d\d\d\d\d\d\d', line)
-      x = int(match.group())
-      imagelist.append(x)
+      imagelist.append(int(round(float(re.match(r'[0-9\.]+', line).group()))))
       lines.append(line)
  
     found_segment_start = False
@@ -591,11 +765,10 @@ if 4 in code_sections: #on/off switch for code
   else:
     print(current_time() + ' INFO:  Step 4 of 6: Found cut positions resulting in ' + str(len(beginnings)) + ' segments.')
 
-
 #option to confirm overwriting in ffmpeg
-if args.overwrite == True:
-  ffmpeg_overwrite = ' -y'
-else: ffmpeg_overwrite = ''
+if quiet and confirm_overwrite: ffmpeg_overwrite = ' -y'
+if quiet and (not confirm_overwrite): ffmpeg_overwrite = ' -n'
+if (not quiet): ffmpeg_overwrite = ''
 
 #option to show ffpmeg output
 if verbose: quietffmpeg = ''
