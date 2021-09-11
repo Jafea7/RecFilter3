@@ -24,6 +24,14 @@ detector = NudeDetector()
 def current_time():
   return time.strftime("%H:%M:%S", time.localtime())
 
+# https://bugs.python.org/issue31842
+def abspath(dir):
+  try:
+    absolute_path = dir.resolve()
+  except:
+    absolute_path = Path(os.path.abspath(dir))
+  return absolute_path
+
 pushstack = []
 def pushdir(dirname):
   global pushstack
@@ -33,6 +41,16 @@ def pushdir(dirname):
 def popdir():
   global pushstack
   os.chdir(pushstack.pop())
+
+def yes_or_quit():
+  print('[y/n] ')
+  while True:
+    answer = str( input().lower().strip() )
+    if answer == 'y':
+      break
+    elif answer == 'n':
+      sys.exit()
+    else: print("Please enter y or n.")
 
 def clean_on_exit(path):
   if verbose: print('Deleting ' + str(path))
@@ -79,6 +97,22 @@ parser.add_argument('-6', '--save', action='append_const', dest='switches', cons
 
 args = parser.parse_args()
 
+#variables only in either command line or config
+video_name = Path(args.file)
+keep = args.keep
+logs = args.logs
+verbose = args.verbose
+create_negative = args.negative
+quiet = args.quiet
+keep_filedate = True
+move_original = ''
+
+# Default wanted is gender neutral, if a particular gender is required it can be entered into the config file per preset
+# Other terms can also be set in the config, see https://github.com/Jafea7/RecFilter3 for valid terms
+wanted = ['EXPOSED_BREAST', 'EXPOSED_BUTTOCKS', 'EXPOSED_ANUS', 'EXPOSED_GENITALIA', 'EXPOSED_BELLY']
+unwanted = []
+file_ext = 'mp4' # In case there's no videoext entry in the config
+
 #Only really use category when preset given
 if args.preset:
   preset = args.preset.lower()
@@ -89,26 +123,7 @@ else:
   if args.category: preset = args.category.lower()
   else: category = False
 
-
-video_name = Path(args.file)
-keep = args.keep
-logs = args.logs
-verbose = args.verbose
-create_negative = args.negative
-quiet = args.quiet
-keep_filedate = True
-
-# Default wanted is gender neutral, if a particular gender is required it can be entered into the config file per preset
-# Other terms can also be set in the config, see https://github.com/Jafea7/RecFilter3 for valid terms
-wanted = ['EXPOSED_BREAST', 'EXPOSED_BUTTOCKS', 'EXPOSED_ANUS', 'EXPOSED_GENITALIA', 'EXPOSED_BELLY']
-unwanted = []
-file_ext = 'mp4' # In case there's no videoext entry in the config
-
-print('\n' + current_time() + ' INFO:  Input file: ')
-print(str(video_name))
-
-
-#Keep track of used arguments and initialize variables for unused ones
+#variables in command line and config
 commandline = {}
 if args.interval:
   sample_interval = args.interval
@@ -145,6 +160,18 @@ if args.fast:
   commandline['fastmode'] =  args.fast
 else: fastmode = False
 
+#Initial path variables
+video_path = abspath(video_name) # Get the full video path
+startdir = Path(video_path).parent
+tmpdirnaming = '~' + Path(video_name).stem
+tmpdir = Path(startdir).joinpath(tmpdirnaming)
+
+#Get modification time from the original
+modification_time = os.stat(video_path).st_mtime_ns
+
+print('\n' + current_time() + ' INFO:  Input file: ')
+print(str(video_path))
+
 #Load config
 config_path = Path(os.path.splitext(sys.argv[0])[0] + '.config')
 if config_path.exists() == False:
@@ -160,16 +187,7 @@ else:
     config_valid = False
   if config_path.exists() == False or config_valid == False:
       print("Do you you want to continue with default arguments instead?")
-      print('[y/n] ')
-      stop = False
-      while stop == False:
-        answer = str( input().lower().strip() )
-        if answer == 'y':
-          stop = True
-        elif answer == 'n':
-          stop = True
-          sys.exit()
-        else: print("Please enter y or n.")
+      yes_or_quit()
 
 
 list_of_valid_config_keys = ['note','inherit','interval','gap','duration','extension','category','include','exclude','startafter','stopbefore','filesuffix','videoext','fastmode','destination','move_original','rename_identical','move_identical','rename_noresult','move_noresult','move_segments','move_txt_files','confirm_overwrite','confirm_defaults','create_noresult_txt','create_identical_txt','keep_filedate']
@@ -246,20 +264,20 @@ if config_valid and preset:
             if write_config_value('videoext',str): file_ext = preset_dict.get('videoext')
             if write_config_value('fastmode',bool): fastmode = preset_dict.get('fastmode')
             if write_config_value('destination','path'): destination = preset_dict.get('destination')
-            if write_config_value('tempdir','path'): tempdir = preset_dict.get('tempdir')
-            if write_config_value('move_original','path'): move_original = preset_dict.get('move_original')
-            if write_config_value('move_tempdir','path'): move_tempdir = preset_dict.get('move_tempdir')
-            if write_config_value('rename_identical','path'): rename_identical = preset_dict.get('rename_identical')
-            if write_config_value('move_identical','path'): move_identical = preset_dict.get('move_identical')
-            if write_config_value('rename_noresult','path'): rename_noresult = preset_dict.get('rename_noresult')
-            if write_config_value('move_noresult','path'): move_noresult = preset_dict.get('move_noresult')
-            if write_config_value('move_segments','path'): move_segments = preset_dict.get('move_segments')
-            if write_config_value('move_txt_files','path'): move_segments = preset_dict.get('move_segments')
+            if write_config_value('tempdir','path'): tmpdir = preset_dict.get('tempdir')
+            if write_config_value('move_original','path'): move_original = abspath(preset_dict.get('move_original'))
+#            if write_config_value('move_tempdir','path'): move_tempdir = preset_dict.get('move_tempdir')
+#            if write_config_value('rename_identical','path'): rename_identical = preset_dict.get('rename_identical')
+#            if write_config_value('move_identical','path'): move_identical = preset_dict.get('move_identical')
+#            if write_config_value('rename_noresult','path'): rename_noresult = preset_dict.get('rename_noresult')
+#            if write_config_value('move_noresult','path'): move_noresult = preset_dict.get('move_noresult')
+#            if write_config_value('move_segments','path'): move_segments = preset_dict.get('move_segments')
+#            if write_config_value('move_txt_files','path'): move_segments = preset_dict.get('move_segments')
             if write_config_value('confirm_overwrite',bool): confirm_overwrite = preset_dict.get('confirm_overwrite')
-            if write_config_value('confirm_defaults',bool): confirm_defaults = preset_dict.get('confirm_defaults')
-            if write_config_value('create_noresult_txt',bool): create_noresult_txt = preset_dict.get('create_noresult_txt')
-            if write_config_value('create_identical_txt',bool): create_identical_txt = preset_dict.get('create_identical_txt')
-            if write_config_value('create_contact_sheet',bool): create_contact_sheet = preset_dict.get('create_contact_sheet')
+#            if write_config_value('confirm_defaults',bool): confirm_defaults = preset_dict.get('confirm_defaults')
+#            if write_config_value('create_noresult_txt',bool): create_noresult_txt = preset_dict.get('create_noresult_txt')
+#            if write_config_value('create_identical_txt',bool): create_identical_txt = preset_dict.get('create_identical_txt')
+#            if write_config_value('create_contact_sheet',bool): create_contact_sheet = preset_dict.get('create_contact_sheet')
             if write_config_value('keep_filedate',bool): keep_filedate = preset_dict.get('keep_filedate')
             #note down used presets, so we can skip them
             presets_found.append(preset_name)
@@ -277,17 +295,8 @@ if config_valid and preset:
     print('\n' + current_time() + ' INFO:  Preset \'' + preset + '\' not found.')
     if (not quiet):
       print("\nThere might be a typo in your --preset argument.\nDo you want to continue with default settings instead?")
-      print('[y/n] ')
-      stop = False
-      while stop == False:
-        answer = str( input().lower().strip() )
-        if answer == 'y':
-          stop = True
-          print('Using defaults')
-        elif answer == 'n':
-          stop = True
-          sys.exit()
-        else: print("Please enter y or n.")
+      yes_or_quit()
+      print('Using defaults')
     if quiet and (not confirm_defaults): sys.exit('confirm_defaults = False')
 
 print('\n' + current_time() + ' INFO:  Using the following settings:')
@@ -415,7 +424,6 @@ else:
     else: sys.exit('\nERROR:  Tag ' + j + ' is invalid. Check for typos.')
 
 imagelist = []
-lines = []
 beginnings = []
 endings = []
 
@@ -427,27 +435,21 @@ z = 0
 
 keyframe_interval = 1
 
-#Path variables
-video_path = Path(video_name).resolve() # Get the full video path
-startdir = Path(video_path).parent
-tmpdirnaming = '~' + Path(video_name).stem
-tmpdir = Path(startdir).joinpath(tmpdirnaming)
+#derived path variables
 images_dir = Path(tmpdir) / 'images'
 segments_dir = Path(tmpdir) / 'segments'
 excluded_segments_dir = Path(tmpdir) / 'excluded_segments'
 
-#Get modification time from the original
-modification_time = os.stat(video_path).st_mtime_ns
-
 # Change to video container directory
 pushdir(Path(video_path).parent) 
 
-#Finding video duration
+#Finding expected video duration in metadata till image creation gives an exact result
 ffprobe_cmd = subprocess.check_output('ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 -i "' + str(video_path) + '"', shell=True).decode()
-duration_float = round(float(ffprobe_cmd),3)
+expected_duration_float = round(float(ffprobe_cmd),3)
+duration_float = expected_duration_float
 duration = int(round(duration_float))
 if verbose:
-  print('\n' + current_time() + ' INFO:  Duration of input video: ')
+  print('\n' + current_time() + ' INFO:  Expected duration of input video: ')
   print(str(duration) + ' seconds')
 
 # Activation and deactivation of whole program sections
@@ -476,19 +478,10 @@ except: code_sections = [1,2,3,4,5,6]
 print('\n' + current_time() + ' INFO:  Creating temporary directory ...')
 if Path(tmpdir).exists():
     print('WARN:  The following temporary folder will be overwritten:')
-    print(os.path.abspath(tmpdir))
+    print(abspath(tmpdir))
     if (not quiet):
       print('\nAre you sure you want to potentially overwrite previous results?')
-      print('[y/n] ')
-      stop = 0
-      while stop == 0:
-        answer = str( input().lower().strip() )
-        if answer == 'y':
-          stop = 1
-        elif answer == 'n':
-          sys.exit('Creation of the temporary directory failed')
-          stop = 1
-        else: print("Please enter y or n.")
+      yes_or_quit()
     else:
       if quiet and (not confirm_overwrite): sys.exit('confirm_overwrite = False')
 else:
@@ -534,22 +527,25 @@ if 1 in code_sections: #on/off switch for code
   os.chdir(images_dir)
 
 #ffmpeg image creation
+# It is unclear whether -start_at_zero should be added to -copyts. Testing showed it can result in negative starting timestamps.
+# When using the fps filter it can choose the same keyframe for two or more different seconds. To drop duplicates the mpdecimate filter is needed.
   with open(all_images_txt_path,"w", newline='') as all_images_txt:
     image_ffmpeg_filenames = '%07d.jpg'
     image_ffmpeg_inputpath = '-i "'+ str(video_path) + '"'
     if fastmode: image_ffmpeg_resize = "',scale=\'" + str(max_side_length) + ":" + str(max_side_length) + ":force_original_aspect_ratio=decrease\'"
     else: image_ffmpeg_resize = "',scale=\'" + str(max_side_length) + ":" + str(max_side_length) + ":force_original_aspect_ratio=decrease\'"
-    if skip_finish: image_ffmpeg_stop = ' -t ' + str(duration_float)-skip_finish
+    if skip_finish: image_ffmpeg_stop = ' -t ' + str(duration_float-skip_finish)
     else: image_ffmpeg_stop =  ' '
-    image_ffmpeg_inputoptions = ' -y -skip_frame nokey -copyts -start_at_zero -ss ' + str(skip_begin)
+    if skip_begin and skip_begin > 0: image_ffmpeg_inputoptions = ' -y -skip_frame nokey -copyts -avoid_negative_ts disabled -ss ' + str(skip_begin)
+    else: image_ffmpeg_inputoptions = ' -y -skip_frame nokey -copyts -avoid_negative_ts disabled'
     #showinfo has to be used before and after the fps function to get correct timestamps
-    image_ffmpeg_filters = ' -vf "showinfo,fps=1,select=\'not(mod(t,' + str(sample_interval) + '))' + image_ffmpeg_resize + ',showinfo"'
-    image_ffmpeg_outputoptions = image_ffmpeg_stop + ' -vsync 0 -an -qmin 1 -q:v 1'
+    image_ffmpeg_filters = ' -vf "showinfo,fps=1,mpdecimate,select=\'not(mod(t,' + str(sample_interval) + '))' + image_ffmpeg_resize + ',showinfo"'
+    image_ffmpeg_outputoptions = image_ffmpeg_stop + ' -vsync 0 -muxpreload 0 -muxdelay 0 -an -qmin 1 -q:v 1'
     image_ffmpeg_cmd = 'ffmpeg' + image_ffmpeg_inputoptions + ' ' + image_ffmpeg_inputpath + image_ffmpeg_filters + image_ffmpeg_outputoptions + ' ' + image_ffmpeg_filenames
 
     
 
-   #Create other images with ffmpeg fps filter
+   #Create images with ffmpeg fps filter
     if verbose: print(image_ffmpeg_cmd)
     #For some reason ffmpeg sends its showinfo output to stderr instead of stdout
     image_ffmpeg_output = subprocess.run(image_ffmpeg_cmd,check=True,capture_output=True,text=True)
@@ -563,41 +559,73 @@ if 1 in code_sections: #on/off switch for code
     output_positions = []
 
     for line in image_ffmpeg_output.stderr.splitlines():
-      if ('Parsed_showinfo_0' in line) and ('pts_time' in line):
+      if ('Parsed_showinfo_0' in line) and ('pts:' in line):
         input_frames_lines.append(line)
-      elif ('Parsed_showinfo_') in line and ('pts_time' in line):
+      elif ('Parsed_showinfo_' in line) and ('pts:' in line):
         fps_filter_frames_lines.append(line)
 
     for line in input_frames_lines:
-      input_timestamp = re.search(r' pts_time:[ ]*([0-9\.]+) ',str(line)).group(1)
-      input_position = re.search(r' pos:[ ]*([0-9]+) ',str(line)).group(1)
+      input_timestamp = re.search(r' pts: *([0-9\-]+) ',str(line)).group(1)
+      input_position = re.search(r' pos: *([0-9]+) ',str(line)).group(1)
       if input_timestamp and input_position:
-#        input_table.append([input_timestamp,input_position])
-        input_table[input_position] = input_timestamp
+        input_table[input_position] = input_timestamp.zfill(4)[:-3]+'.'+input_timestamp.zfill(4)[-3:]
     for line in fps_filter_frames_lines:
-      output_position = re.search(r' pos:[ ]*([0-9]+) ',str(line)).group(1)
+      output_position = re.search(r' pos: *([0-9]+) ',str(line)).group(1)
       if output_position: output_positions.append(output_position)
     for pos in output_positions:
       image_timestamps.append(input_table[pos])
 
-    
    #Create an exact last image (not a keyframe)
    # https://superuser.com/a/1448673
-    if skip_finish:
-      'ffmpeg' + ' -y -copyts -start_at_zero -sseof -' + skip_finish + ' ' + image_ffmpeg_inputpath + ' ' + image_ffmpeg_stop + ' -vframes 1 -vf "showinfo" -vsync 0 -an -qmin 1 -q:v 1' + ' ' + str(len(image_timestamps)+1).zfill(7) + '.jpg'
+    if skip_finish and (skip_finish > 0):
+        image_ffmpeg_last_cmd = 'ffmpeg' + ' -y -copyts -avoid_negative_ts disabled -ss ' + str(duration_float-skip_finish) + ' ' + image_ffmpeg_inputpath + ' ' + image_ffmpeg_stop + ' -vframes 1 -vf "showinfo" -vsync 0 -muxpreload 0 -muxdelay 0 -an -qmin 1 -q:v 1' + ' ' + str(len(image_timestamps)+1).zfill(7) + '.jpg'
     else: 
-      image_ffmpeg_last_cmd = 'ffmpeg' + ' -y -copyts -start_at_zero -sseof -0.1' + ' ' + image_ffmpeg_inputpath  + ' -update 1 -vf "showinfo" -vsync 0 -an -qmin 1 -q:v 1' + ' ' + str(len(image_timestamps)+1).zfill(7) + '.jpg'
-    if verbose: print(image_ffmpeg_first_cmd)
+      image_ffmpeg_last_cmd = 'ffmpeg' + ' -y -copyts -avoid_negative_ts disabled -ss ' + image_timestamps[-1] + ' ' + image_ffmpeg_inputpath  + ' -update 1 -vf "showinfo" -vsync 0 -muxpreload 0 -muxdelay 0 -an -qmin 1 -q:v 1' + ' ' + str(len(image_timestamps)+1).zfill(7) + '.jpg'
+    if verbose: print(image_ffmpeg_last_cmd)
     image_ffmpeg_last_output = subprocess.run(image_ffmpeg_last_cmd,check=True,capture_output=True,text=True)
+    last_timestamp = ''
     for line in image_ffmpeg_last_output.stderr.splitlines():
-      if ('Parsed_showinfo_') in line and ('pts_time' in line):
-        last_timestamp = re.search(r' pts_time:[ ]*([0-9\.]+) ',str(line)).group(1)
-    if last_timestamp > image_timestamps[-1]:
-      image_timestamps.append(last_timestamp)
-    else: os.remove(str(len(image_timestamps)+1).zfill(7) + '.jpg')
+      if ('Parsed_showinfo_' in line) and ('pts:' in line):
+        last_timestamp = re.search(r' pts: *([0-9\-]+) ',str(line)).group(1)
+    if last_timestamp:
+      if float(last_timestamp) > float(image_timestamps[-1]):
+        image_timestamps.append(last_timestamp.zfill(4)[:-3]+'.'+last_timestamp.zfill(4)[-3:])
+      else:
+        os.remove(str(len(image_timestamps)+1).zfill(7) + '.jpg')
+        if verbose: print('deleted last frame again, because ffmpeg fps filter created it already')
+    else:
+      if skip_finish and (skip_finish > 0):
+        sys.exit('Finding the last timestamp failed. Make sure the video has correct metadata for the total duration, since -b / --stopbefore is dependend on it. Should the duration be incorrect you should still be able to process the video without -b / --stopbefore.')
+      else: sys.exit('Finding the last timestamp failed')
+   # Set duration and duration float to the actual values
+    duration_float = round(float(image_timestamps[-1]),3)
+    duration = int(round(duration_float))
+    if verbose:
+      print('\n' + current_time() + ' INFO:  Confirmed duration of input video: ')
+      print(str(duration) + ' seconds')
+
+   #Create an exact first image (not a keyframe)
+   # https://trac.ffmpeg.org/ticket/5093
+    if skip_begin and skip_begin > 0:
+      image_ffmpeg_first_cmd = 'ffmpeg' + ' -y -copyts -avoid_negative_ts disabled -ss ' + str(skip_begin) + ' ' + image_ffmpeg_inputpath + ' -vframes 1 -vf "showinfo" -vsync 0 -muxpreload 0 -muxdelay 0 -an -qmin 1 -q:v 1 0000000.jpg'
+    else: 
+      image_ffmpeg_first_cmd = 'ffmpeg' + ' -y -copyts -avoid_negative_ts disabled ' + image_ffmpeg_inputpath + ' -vframes 1 -vf "showinfo" -vsync 0 -muxpreload 0 -muxdelay 0 -an -qmin 1 -q:v 1 0000000.jpg'
+    if verbose: print(image_ffmpeg_first_cmd)
+    image_ffmpeg_first_output = subprocess.run(image_ffmpeg_first_cmd,check=True,capture_output=True,text=True)
+    first_timestamp = ''
+    for line in image_ffmpeg_first_output.stderr.splitlines():
+      if ('Parsed_showinfo_' in line) and ('pts:' in line):
+        first_timestamp = re.search(r' pts: *([0-9\-]+) ',str(line)).group(1)
+    if first_timestamp:
+      if float(first_timestamp) < float(image_timestamps[0]):
+        image_timestamps.insert(0,first_timestamp.zfill(4)[:-3]+'.'+first_timestamp.zfill(4)[-3:])
+      else:
+        os.remove('0000000.jpg')
+        if verbose: print('deleted first frame again, because ffmpeg fps filter created it already')
+    else: sys.exit('Finding the first timestamp failed')
 
     image_csv = csv.writer(all_images_txt,delimiter=' ')
-    file_list = [f for f in os.listdir(images_dir) if re.search(r'[0-9]{7}.jpg', f)]
+    file_list = sorted([f for f in os.listdir(images_dir) if re.search(r'[0-9]{7}.jpg', f)])
     image_count = 0
     for file in file_list:
       image_csv.writerow([image_timestamps[image_count],file])
@@ -605,7 +633,6 @@ if 1 in code_sections: #on/off switch for code
       image_count +=1
   print(current_time() + ' INFO:  Step 1 of 6: Finished creating ' + str(image_count) + ' sample images.\n')    
   os.chdir(startdir)
-
 
 if 2 in code_sections: #on/off switch for code
   if fastmode: print(current_time() + ' INFO:  Step 2 of 6: Fast mode for NudeNet was activated')
@@ -688,9 +715,9 @@ if 4 in code_sections: #on/off switch for code
 
   with open(matched_images_txt_path,"r") as matched_images_txt, open(cuts_txt_path,"w") as cuts_txt:
     for line in matched_images_txt:
-      imagelist.append(int(round(float(re.match(r'[0-9\.]+', line).group()))))
-      lines.append(line)
- 
+      imagelist.append(int(round(float(re.match(r'[0-9\.\-]+', line).group()))))
+    #Remove timestamp doubles and make sure the timestamps are in ascending order
+    sorted(list(set(imagelist)))
     found_segment_start = False
     for i in range(0,len(imagelist)):
 # variables
@@ -760,7 +787,7 @@ if 4 in code_sections: #on/off switch for code
 #      shutil.copy2(video_path,os.path.splitext(video_path)[0] + addtofilename + os.path.splitext(video_path)[1])
     else: 
       print('Converting video from ' + os.path.splitext(video_path)[1] + ' to ' + str(file_ext) + '...',end='\r')
-      os.system('ffmpeg -i "' + str(video_path) + str(os.path.splitext(video_path)[0] + addtofilename + '.' + str(file_ext)))
+      os.system('ffmpeg' + ' -copyts -avoid_negative_ts disabled' + ' -i "' + str(video_path) + str(os.path.splitext(video_path)[0] + addtofilename + '.' + str(file_ext)))
     sys.exit('Finished converting the video from ' + os.path.splitext(video_path)[1] + ' to ' + str(file_ext))
   else:
     print(current_time() + ' INFO:  Step 4 of 6: Found cut positions resulting in ' + str(len(beginnings)) + ' segments.')
@@ -797,8 +824,8 @@ if 5 in code_sections: #on/off switch for code
           ffmpeg_cut_end = int(ts[i][1])
           ffmpeg_cut_duration = ffmpeg_cut_end - ffmpeg_cut_start
           segment_path = dir.joinpath(video_name.stem + '_' + str(ts[i][0]).zfill(7) + '-' + str(ts[i][1]).zfill(7) + '.' + str(file_ext))
-          ffmpeg_cut_input_options = ffmpeg_overwrite + quietffmpeg + ' -vsync 0 -ss ' + str(ts[i][0]) + ' -i "'
-          ffmpeg_cut_output_options = '" -t ' + str(ffmpeg_cut_duration) + ' -c copy ' + '"' + str(segment_path) + '"'
+          ffmpeg_cut_input_options = ffmpeg_overwrite + quietffmpeg + ' -vsync 0 -ss ' + str(ts[i][0]) + ' -avoid_negative_ts disabled' + ' -i "'
+          ffmpeg_cut_output_options = '" -t ' + str(ffmpeg_cut_duration) + ' -c copy -muxpreload 0 -muxdelay 0 ' + '"' + str(segment_path) + '"'
           ffmpeg_cut_cmd = 'ffmpeg' + ' ' + ffmpeg_cut_input_options + str(video_path) + ffmpeg_cut_output_options
           #Write output filenames into file for ffmpeg -f concat
           segments_txt.write("file 'file:" + str(dir.joinpath(segment_path.stem)).replace('\\', '/') + "'\n")
@@ -861,7 +888,7 @@ if 6 in code_sections: #on/off switch for code
     if dir == excluded_segments_dir: negative_str = '_negative'
     else: negative_str = ''
     ffmpeg_concat_destpath = Path(os.path.splitext(video_path)[0] + addtofilename + negative_str + '.' + str(file_ext))
-    ffmpeg_concat_options = quietffmpeg + ffmpeg_overwrite + ' -vsync 0 -safe 0 -f concat -i "' + txt.replace('\\', '/') + '" -c copy'
+    ffmpeg_concat_options = quietffmpeg + ffmpeg_overwrite + ' -vsync 0 -safe 0 -f concat' + ' -avoid_negative_ts disabled' + ' -i "' + txt.replace('\\', '/') + '" -c copy -muxpreload 0 -muxdelay 0'
     ffmpeg_concat_cmd = 'ffmpeg' + ' ' + ffmpeg_concat_options + ' ' + '"' + str(ffmpeg_concat_destpath) + '"'
     #Don't use ffmpeg concat if it is only a single segment with the same video cotainer
     if (count == 1) and (os.path.splitext(video_name)[1] == '.' + str(file_ext)):
@@ -881,6 +908,9 @@ if 6 in code_sections: #on/off switch for code
   if keep == False: 
     atexit.register(clean_on_exit,segments_dir)
     if create_negative: atexit.register(clean_on_exit,excluded_segments_dir)
+
+if move_original:
+  shutil.move(video_path,move_original/video_name)
 
   os.chdir(startdir)
 
