@@ -1,0 +1,32 @@
+---
+presets:
+- note: This preset will always be executed at the end to fill missing values
+  name: default
+  subset: ''
+  interval: 5
+  gap: 30
+  duration: 10
+  extension: 3
+  include: EXPOSED_BREAST,EXPOSED_BUTTOCKS,EXPOSED_ANUS,EXPOSED_GENITALIA,EXPOSED_BELLY
+  exclude: ''
+  begin: 0
+  finish: 0
+  filesuffix: _recfilter
+  videoext: mp4
+- note: This preset will be executed through the inherit in presetwithvalues
+  name: iwantmkv
+  videoext: mkv
+- note: This example preset is the one we call first directly via command line. Usually
+    named after the model or site. Inherit causes it to call another preset.
+  name: presetwithtags
+  inherit: presetwithvalues
+  include: EXPOSED_GENITALIA_F,EXPOSED_ANUS
+- note: This example preset has a set of values we like to use more often and it attaches
+    another word to the filename.
+  name: presetwithvalues
+  inherit: iwantmkv
+  interval: 2
+  gap: 30
+  duration: 0
+  extension: 30
+  filesuffix: _i1g30d0e30
