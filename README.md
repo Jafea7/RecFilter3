@@ -4,6 +4,8 @@ Completely rewritten from the original by @Datahell
 
 # **Under Construction**
 
+# **This is an unfinished project, do not complain about things not working - fork it and fix it yourself.**
+
 ---
 
 ## Explanation:
